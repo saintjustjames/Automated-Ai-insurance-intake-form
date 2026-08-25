@@ -22,6 +22,11 @@ fixing that means debugging a limitation instead of removing it.
 - [ ] Set up the Twilio ring group and voicemail box the transfer lands on.
 - [ ] Assign someone to actually work that voicemail queue.
 - [ ] Tune voice preset and speed; confirm barge-in is on.
+- [ ] **Enable `smartDenoisingPlan` and set `stopSpeakingPlan.numWords: 2`.**
+      Fixes background noise cutting the agent off. Both ship at defaults that
+      cause it. Verify with test scenarios 22a–22d.
+- [ ] Set `backgroundSound: "off"` — the default office ambience competes with
+      the agent's voice for hard-of-hearing callers.
 - [ ] Re-paste the rewritten prompt into Vapi (it changed materially — see
       `prompts/CHANGELOG.md` 2026-08-25c).
 - [ ] Run the **P0 block** in `tests/call-scenarios.md`. Blocks go-live.

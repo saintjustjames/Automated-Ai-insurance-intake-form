@@ -44,6 +44,14 @@ Settled. Don't relitigate without a reason.
 - **A model change is not shippable until the P0 test block passes.** The test
   suite is what makes trying a cheaper model a measurable experiment instead of a
   gamble.
+- **Noise gets removed, not tolerated.** *Decided 2026-08-25.* Background noise
+  cutting the agent off is fixed with denoising first (`smartDenoisingPlan`,
+  which ships off) and only then by raising the interruption threshold. Barge-in
+  is never disabled to solve it — talking over a caller is worse than being
+  interrupted by a TV.
+- **`stopSpeakingPlan.numWords` stays at 2, not 3.** The interruption that
+  matters most on this call is a one- or two-word demand for a human. A higher
+  threshold makes the agent talk over exactly the caller it most needs to hear.
 - Vapi over Retell, because coding help makes the extra flexibility worth it.
 - Post-call automation: **reopened 2026-08-25.** n8n was chosen over Zapier, but
   a scheduled agent polling the Vapi API is a viable alternative that drops the

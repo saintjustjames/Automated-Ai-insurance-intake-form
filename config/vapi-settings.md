@@ -6,23 +6,109 @@ The prompt only gets you halfway. Delivery does the rest.
 - Pick a **warmer, natural preset** — not the default.
 - Set speed **slightly below default.** Robotic pacing undoes good writing.
 
+## Background noise is cutting the agent off — the fix
+
+**Symptom:** the agent stops mid-sentence when nobody interrupted it. A TV in the
+room, a cough, a dog, road noise, someone else talking nearby.
+
+**Cause:** two defaults working against you.
+
+1. **Denoising ships OFF.** `backgroundSpeechDenoisingPlan` defaults to disabled
+   on both plans. Raw room noise reaches the interruption detector.
+2. **`stopSpeakingPlan.numWords` effectively defaults to 0**, which means *any*
+   detected voice activity stops the agent. Zero is "react instantly to
+   anything" — including things that aren't the caller.
+
+Fix them in that order. Denoising first: it removes the noise instead of raising
+the bar for reacting to it, so it costs nothing in responsiveness.
+
+### 1. Turn on smart denoising
+
+```json
+{
+  "backgroundSpeechDenoisingPlan": {
+    "smartDenoisingPlan": { "enabled": true }
+  }
+}
+```
+
+Krisp-powered, real-time. Vapi's own guidance is that Smart Denoising alone
+handles about 90% of cases. **Do this before touching anything else** — for most
+setups it's the whole fix.
+
+### 2. Stop reacting to every sound
+
+```json
+{
+  "stopSpeakingPlan": {
+    "numWords": 2,
+    "voiceSeconds": 0.3,
+    "backoffSeconds": 1
+  }
+}
+```
+
+| Field | Default | Set to | Why |
+|---|---|---|---|
+| `numWords` | 0 | **2** | Words the caller must say before the agent yields. At 0 a cough stops it. At 2, noise doesn't — but see the warning below about going higher. |
+| `voiceSeconds` | 0.2s | **0.3** | How long speech must be detected first. Vapi's docs say raising this "reduces false positives from background sounds in noisy environments." Short bursts stop counting. |
+| `backoffSeconds` | 1s | **1** | Pause before resuming after a real interruption. Leave it. |
+
+> **Don't push `numWords` past 2 on this agent.** The general advice is 2–3, but
+> the interruption that matters most here is a one- or two-word demand for a
+> human — "representative!", "agent", "stop". At 3 the agent talks over exactly
+> the caller it most needs to hear. 2 rejects noise while still catching a
+> two-word interruption on the first try.
+
+### 3. Only if a TV is still getting through
+
+```json
+{
+  "backgroundSpeechDenoisingPlan": {
+    "smartDenoisingPlan": { "enabled": true },
+    "fourierDenoisingPlan": { "enabled": true, "mediaDetectionEnabled": true }
+  }
+}
+```
+
+Standard denoisers preserve human speech by design — so a TV news anchor survives
+denoising right alongside the caller. Fourier denoising targets that specifically,
+detecting broadcast audio by its consistent levels and lack of natural pauses.
+
+**It's experimental.** Vapi says so plainly. It can cause artifacts for
+headphone users, struggles in dynamic environments, and needs per-environment
+tuning (`baselineOffsetDb`, `windowSizeMs`, `baselinePercentile`). Layer it on
+top of smart denoising only if a real caller demonstrates the problem — not
+preemptively.
+
+### This is a config fix, not a prompt fix
+
+Nothing in `prompts/system-prompt.md` changes. "If the caller interrupts you,
+stop talking immediately" is still correct — that governs what the agent does
+once an interruption is detected. What's being fixed is *what counts* as one,
+and the model has no say in that.
+
 ## Interruption handling
-- **Turn barge-in ON.** Callers need to be able to talk over the AI. This single
-  setting does more for "sounds human" than anything in the script.
+- **Barge-in stays ON.** Callers need to be able to talk over the agent. Tune
+  noise rejection above; do not solve noise by disabling interruption.
 - **Give endpointing room.** The defaults are tuned for people who answer
   briskly. Seniors reading a medication bottle out loud pause mid-sentence. Too
   tight and the agent talks over them; too loose and every turn feels laggy.
   Step 12 is where you'll hear it break first.
 
-Actual field names, with Vapi's documented defaults:
-
 | Field | Default | For this call flow |
 |---|---|---|
 | `startSpeakingPlan.waitSeconds` | 0.4s | **Raise it.** 0.4s is short for someone squinting at a pill bottle. |
 | `startSpeakingPlan.smartEndpointingPlan` | off | **Turn on.** Detects a real end-of-turn instead of counting silence. Providers include LiveKit, Deepgram Flux, Assembly, Krisp, Vapi. |
-| `stopSpeakingPlan.numWords` | ~0 | Words the caller must say before the agent stops. Keep low — barge-in is a feature here. |
-| `stopSpeakingPlan.voiceSeconds` | 0.2s | How long they must speak before the agent yields. |
-| `stopSpeakingPlan.backoffSeconds` | 1s | Pause before the agent resumes after being interrupted. |
+
+## `backgroundSound` — consider turning it off
+
+Vapi defaults phone calls to an `"office"` ambience layered into what the caller
+hears. It exists to make calls feel less sterile.
+
+For an audience of seniors, some hard of hearing, on speakerphone or a landline,
+added background chatter competes with the one voice they're trying to follow.
+Set it to `"off"` and let the agent be the only thing on the line.
 
 > **Smart endpointing interacts with the language plan.** Vapi documents LiveKit
 > smart endpointing as English-focused. Whatever provider you pick, re-run test

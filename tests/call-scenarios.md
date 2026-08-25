@@ -59,6 +59,10 @@ not a browser mic.
 | 20 | **Long pause mid-answer** | Pause 4–5 seconds while "reading a bottle." Agent waits. Does not talk over you or move on. |
 | 21 | **Full silence** | Say nothing at all. Three-strike ladder runs in order, then closes politely. Vapi's own silence timeout must not fire first and cut it short. |
 | 22 | **Barge-in** | Interrupt mid-sentence. Agent stops immediately, answers what you said, does not restart the sentence you already heard. |
+| 22a | **Background noise does NOT interrupt** | Put a TV or radio on at conversational volume nearby and let the agent talk through a long turn. It should finish its sentence. If it stops mid-sentence with nobody speaking to it, denoising is off or `numWords` is 0 — see `config/vapi-settings.md`. |
+| 22b | **Cough / bump / dog** | Make a single short non-speech noise while the agent is talking. It should not stop. |
+| 22c | **One-word interruption still works** | Say "representative!" once, mid-sentence. The agent must still yield. This is the check that noise rejection wasn't tuned so high it deafened the agent to the interruption that matters most — if it fails, `numWords` is too high. |
+| 22d | **Backchannel doesn't derail** | Say "mhm," "okay," "yeah" while the agent is mid-sentence, the way people do on the phone. It should keep going rather than stopping and re-asking. |
 | 23 | **Rambling** | Answer the cost question with two minutes of unrelated story. Agent lets you finish, then steers gently. Never cuts you off. |
 | 24 | **Repeated AI frustration** | Say "I hate these robots" twice. First time: the reassurance line. Second time: transfers. |
 | 25 | **Asks what plan is best** | Deflects to the licensed agent. Names no carrier, no plan, no price. |
