@@ -1,0 +1,291 @@
+{
+  "$comment": "Machine-readable mirror of flows/branching-logic.md. Source of truth for the flow is that markdown file; this exists so the flow can be diffed, tested, and later compiled into a Vapi Workflow (roadmap phase 4) without re-deriving it from prose. Not consumed by anything yet.",
+  "name": "prep-and-seal-intake",
+  "version": "2026-08-25",
+  "entry": "G0",
+  "terminals": {
+    "transfer": "transfer_to_licensed_agent",
+    "end": "end_intake_call"
+  },
+  "globalInterrupts": [
+    {
+      "id": "GI-1",
+      "priority": 1,
+      "trigger": "medical_emergency",
+      "action": "Stop intake. 'Please hang up and call 911 right now.' No triage.",
+      "terminal": "end"
+    },
+    {
+      "id": "GI-2",
+      "priority": 2,
+      "trigger": "voicemail_or_automated_message",
+      "action": "Do not run the intake at all.",
+      "terminal": "end"
+    },
+    {
+      "id": "GI-3",
+      "priority": 3,
+      "trigger": "wrong_person",
+      "action": "Brief apology, no intake.",
+      "terminal": "end"
+    },
+    {
+      "id": "GI-4",
+      "priority": 4,
+      "trigger": "explicit_request_for_human",
+      "action": "Do not push back or finish the intake. 'Of course - let me get you over to a licensed agent right now.' Send the partial record.",
+      "terminal": "transfer"
+    },
+    {
+      "id": "GI-5",
+      "priority": 5,
+      "trigger": "caller_wants_to_stop",
+      "action": "Route to early exit.",
+      "goto": "N16"
+    },
+    {
+      "id": "GI-6",
+      "priority": 6,
+      "trigger": "silence",
+      "ladder": [
+        "Take your time, I'm still here.",
+        "Are you still with me?",
+        "Close politely."
+      ],
+      "terminalOn": 3,
+      "terminal": "end"
+    },
+    {
+      "id": "GI-7",
+      "priority": 7,
+      "trigger": "asks_for_plan_advice_or_pricing_or_eligibility",
+      "action": "'That's exactly what your licensed agent will walk you through.' Resume current node.",
+      "terminal": null
+    },
+    {
+      "id": "GI-8",
+      "priority": 8,
+      "trigger": "confused_about_ai_identity",
+      "action": "Re-disclose plainly. Resume current node.",
+      "terminal": null
+    },
+    {
+      "id": "GI-9",
+      "priority": 9,
+      "trigger": "frustrated_with_ai",
+      "action": "Acknowledge once. On a second occurrence, escalate to GI-4.",
+      "escalatesTo": "GI-4",
+      "escalateAfter": 2,
+      "terminal": null
+    },
+    {
+      "id": "GI-10",
+      "priority": 10,
+      "trigger": "unclear_audio",
+      "action": "'Sorry, I didn't quite catch that - one more time?' Never guess.",
+      "maxRetries": 2,
+      "onExhausted": "record_unclear_and_continue",
+      "terminal": null
+    },
+    {
+      "id": "GI-11",
+      "priority": 11,
+      "trigger": "rambling",
+      "action": "Let them finish, then steer back. Never cut off.",
+      "terminal": null
+    },
+    {
+      "id": "GI-12",
+      "priority": 12,
+      "trigger": "spanish_or_haitian_creole",
+      "action": "Switch fully to that language for the remainder. Do not mix. Resume current node.",
+      "sets": { "language": "es|ht" },
+      "terminal": null
+    }
+  ],
+  "nodes": [
+    {
+      "id": "G0",
+      "step": 1,
+      "label": "Greeting consent",
+      "blocking": true,
+      "note": "The only hard gate in the flow.",
+      "branches": [
+        { "on": "yes", "next": "N2" },
+        { "on": "no", "say": "Totally fine - stay on the line and an agent will be right with you.", "terminal": "end" },
+        { "on": "responds_in_es_or_ht", "interrupt": "GI-12", "next": "N2" }
+      ]
+    },
+    {
+      "id": "N2",
+      "step": 2,
+      "label": "Name",
+      "blocking": false,
+      "captures": ["caller_name"],
+      "branches": [
+        { "on": "given", "next": "N3" },
+        { "on": "declined", "sets": { "caller_name": null, "name_interpolation": false }, "next": "N3" }
+      ]
+    },
+    {
+      "id": "N3",
+      "step": 3,
+      "label": "Who it's for",
+      "blocking": false,
+      "captures": ["is_proxy"],
+      "note": "Data-labeling branch. Questions do not change; who the answers are about does.",
+      "branches": [
+        { "on": "self", "sets": { "is_proxy": false }, "next": "N4" },
+        { "on": "helping_someone_else", "sets": { "is_proxy": true, "answers_describe": "beneficiary" }, "next": "N4" },
+        { "on": "unclear", "reask": 1, "default": { "is_proxy": false, "flag": "unclear" }, "next": "N4" }
+      ]
+    },
+    {
+      "id": "N4",
+      "step": 4,
+      "label": "Phone",
+      "blocking": false,
+      "captures": ["phone", "callback_consent", "alt_phone"],
+      "subquestions": [
+        { "id": "N4.1", "ask": "best number", "readback": "digit_by_digit", "maxCorrections": 2 },
+        { "id": "N4.2", "ask": "callback consent", "blocking": false, "skipIf": "phone == null" },
+        { "id": "N4.3", "ask": "additional number", "optional": true, "skipIf": "phone == null" }
+      ],
+      "next": "N5"
+    },
+    {
+      "id": "N5",
+      "step": 5,
+      "label": "ZIP or county",
+      "blocking": false,
+      "captures": ["zip", "county"],
+      "branches": [
+        { "on": "zip_given", "readback": "digit_by_digit", "next": "N6" },
+        { "on": "county_given", "sets": { "zip": null }, "note": "Do not press for a ZIP.", "next": "N6" },
+        { "on": "declined", "sets": { "zip": null, "zip_clause_in_consent": false }, "next": "N6" }
+      ]
+    },
+    {
+      "id": "N6",
+      "step": 6,
+      "label": "SOA consent",
+      "blocking": false,
+      "note": "Behavior gate, not a stop. Declining narrows vocabulary only.",
+      "captures": ["soa_consent"],
+      "branches": [
+        { "on": "granted", "sets": { "plan_naming_suppressed": false }, "next": "N7" },
+        { "on": "declined_or_unsure", "sets": { "plan_naming_suppressed": true }, "say": "No problem at all - I'll just get a few basics down and your agent can cover the details.", "next": "N7" }
+      ]
+    },
+    {
+      "id": "N7",
+      "step": 7,
+      "label": "Program status",
+      "blocking": false,
+      "isMainBranch": true,
+      "captures": ["program_status"],
+      "rules": [
+        "Never guess which program the caller is in.",
+        "Never explain the difference between Medicare and Medicaid.",
+        "'Not sure' is a complete, recordable answer at every level."
+      ],
+      "branches": [
+        {
+          "on": "both",
+          "sets": { "program_status": "dual" },
+          "say": "Got it - that's good to know, it opens up options your agent will want to go over.",
+          "followUp": { "ask": "Do you know roughly when your Medicaid was last renewed?", "captures": "medicaid_renewal_timing", "acceptUnsure": true },
+          "next": "N8"
+        },
+        {
+          "on": "medicare_only",
+          "sets": { "program_status": "medicare_only" },
+          "followUp": { "ask": "Do you have Part A and Part B, or just one?", "captures": "medicare_parts", "enum": ["A", "B", "both", "unsure"] },
+          "next": "N8"
+        },
+        {
+          "on": "medicaid_only",
+          "sets": { "program_status": "medicaid_only" },
+          "followUp": { "ask": "Are you coming up on Medicare eligibility soon, or not yet?", "captures": "medicare_eligibility_timing" },
+          "next": "N8"
+        },
+        {
+          "on": "neither",
+          "sets": { "program_status": "neither" },
+          "note": "Turning-65 shopper. Added 2026-08-25; the flow previously had no path for this caller.",
+          "followUp": { "ask": "Got it - are you coming up on Medicare eligibility soon?", "captures": "medicare_eligibility_timing" },
+          "next": "N8"
+        },
+        {
+          "on": "unsure",
+          "sets": { "program_status": "unsure" },
+          "followUp": null,
+          "next": "N8"
+        }
+      ]
+    },
+    { "id": "N8", "step": 8, "label": "Employer coverage", "blocking": false, "captures": ["employer_coverage"], "next": "N9" },
+    { "id": "N9", "step": 9, "label": "Shopping status", "blocking": false, "captures": ["shopping_status"], "next": "N10" },
+    { "id": "N10", "step": 10, "label": "Timing", "blocking": false, "captures": ["timing"], "next": "N11" },
+    {
+      "id": "N11",
+      "step": 11,
+      "label": "Veteran status",
+      "blocking": false,
+      "captures": ["veteran_status"],
+      "note": "Courtesy line plus an eligibility signal. Not a qualifying gate - nothing downstream branches on it.",
+      "branches": [
+        { "on": "yes", "say": "Thank you for your service - and to your spouse as well, if that applies.", "next": "N12" },
+        { "on": "no", "next": "N12" }
+      ]
+    },
+    {
+      "id": "N12",
+      "step": 12,
+      "label": "Doctors, medications, pharmacy",
+      "blocking": false,
+      "captures": ["doctors", "medications", "pharmacy"],
+      "subquestions": [
+        { "id": "N12.1", "ask": "Who are the doctors you see regularly?", "skippable": true },
+        { "id": "N12.2", "ask": "What medications are you taking these days?", "skippable": true, "spellBackLoop": { "maxAttempts": 2, "onExhausted": "record_verbatim_with_low_confidence" } },
+        { "id": "N12.3", "ask": "Which pharmacy do you use?", "skippable": true }
+      ],
+      "rules": [
+        "Never synthesize a medication name or dose from a partial.",
+        "Never say what a medication treats or whether it would be covered."
+      ],
+      "next": "N13"
+    },
+    { "id": "N13", "step": 13, "label": "Cost priority", "blocking": false, "captures": ["cost_priority", "other_concerns"], "next": "N14" },
+    { "id": "N14", "step": 14, "label": "Best time to reach", "blocking": false, "captures": ["best_time_to_reach"], "next": "N15" },
+    {
+      "id": "N15",
+      "step": 15,
+      "label": "Summary and transfer",
+      "blocking": false,
+      "summaryFields": ["caller_name", "zip", "program_status", "medications", "cost_priority"],
+      "summaryMaxSeconds": 15,
+      "branches": [
+        { "on": "confirmed", "terminal": "transfer" },
+        { "on": "correction", "action": "Update only the named field and re-read only that item.", "maxLoops": 2, "then": "transfer" },
+        { "on": "declines_transfer", "next": "N16" }
+      ],
+      "postTransfer": {
+        "controlReturns": false,
+        "note": "Warm transfer. On no-answer Vapi plays the fallbackPlan message and the call ends. The assistant cannot resume, so no closing line may assume the transfer succeeds."
+      }
+    },
+    {
+      "id": "N16",
+      "step": 16,
+      "label": "Early exit / declined transfer",
+      "blocking": false,
+      "ask": "Would you like a licensed agent to follow up with you another time?",
+      "branches": [
+        { "on": "yes", "captures": ["callback_preference", "callback_consent"], "terminal": "end" },
+        { "on": "no", "terminal": "end" }
+      ],
+      "rules": ["One offer, then respect the answer. Never push back."]
+    }
+  ]
+}

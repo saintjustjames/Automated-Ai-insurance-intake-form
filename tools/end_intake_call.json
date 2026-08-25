@@ -1,0 +1,20 @@
+{
+  "$comment": "Reference definition for the call-ending tool. Vapi's UI is where this is actually configured; this file keeps the intended configuration version-controlled. VERIFY field names against current Vapi docs before relying on this.",
+  "type": "endCall",
+  "function": {
+    "name": "end_intake_call",
+    "description": "End the call without transferring. Used only on the paths where a transfer is wrong or impossible."
+  },
+  "$calledFrom": [
+    "G0 - caller declines the intake at the greeting",
+    "N16 - early exit, or caller declines the transfer",
+    "GI-1 - medical emergency, after directing the caller to call 911",
+    "GI-2 - voicemail or automated message detected, intake never runs",
+    "GI-3 - wrong number",
+    "GI-6 - third consecutive silence"
+  ],
+  "$neverCalledFrom": [
+    "N15 completion - a completed intake always ends in transfer_to_licensed_agent, never here",
+    "GI-4 - an explicit request for a human is a transfer, not a hangup"
+  ]
+}
