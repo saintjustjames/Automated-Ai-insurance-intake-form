@@ -61,6 +61,18 @@ Before this number takes real callers, confirm with a compliance contact:
 This is flagged, not resolved. Nobody in this repo is qualified to answer it, and
 it is the kind of gap that is far cheaper to close before launch than after.
 
+**If the answer is yes**, the path at Vapi is concrete: a signed BAA via
+`security@vapi.ai`, then HIPAA mode enabled in the dashboard. It is an
+organization-level setting, cannot be turned on through the API, and requires
+Enterprise or a paid add-on — reported around $2,000/month. It also limits access
+to call logs and transcripts, restricts which model/voice/transcription providers
+you may use, and does not store structured outputs by default. See
+`config/vapi-settings.md` for what that does to the rest of the build, and
+`docs/open-questions.md` #6 for the budget collision it creates.
+
+Twilio signs BAAs and n8n's posture depends on how it's hosted; both need the
+same question asked of them, not just Vapi.
+
 ## Hard boundaries in the prompt
 - No plan or carrier names.
 - No coverage or eligibility determinations.

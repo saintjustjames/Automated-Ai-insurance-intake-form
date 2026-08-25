@@ -45,7 +45,11 @@
     "callback_preference": { "type": ["string", "null"], "description": "Preferred day/time, captured only on the early-exit path." },
     "best_time_to_reach": { "type": ["string", "null"] },
 
-    "zip": { "type": ["string", "null"], "pattern": "^[0-9]{5}$" },
+    "zip": {
+      "type": ["string", "null"],
+      "$comment": "Deliberately no regex. Vapi dropped regex support from analysisPlan schemas in June 2025, and more importantly a ZIP that fails validation gets discarded rather than captured - worse than storing whatever the caller actually said. Validate downstream if you need to.",
+      "description": "Five-digit ZIP as spoken. May be absent when the caller gave a county instead."
+    },
     "county": { "type": ["string", "null"] },
 
     "soa_consent": {

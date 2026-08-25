@@ -1,9 +1,14 @@
 {
-  "$comment": "Reference definition for the transfer tool the prompt calls at N15 and on interrupt GI-4. Vapi's UI is the place this actually gets configured - this file exists so the intended configuration is version-controlled and reviewable instead of living only in a web form. VERIFY field names against current Vapi docs before relying on this; the transfer API has changed shape before. Replace DESTINATION_NUMBER before use.",
+  "$comment": "Reference definition for the transfer tool the prompt calls at step 15 and on an immediate request for a human. Vapi's UI is where this is actually configured - this file exists so the intended configuration is version-controlled and reviewable instead of living only in a web form. Field names verified against https://docs.vapi.ai/call-forwarding (August 2026). Replace DESTINATION_NUMBER before use.",
   "type": "transferCall",
   "function": {
     "name": "transfer_to_licensed_agent",
     "description": "Hand the live caller to a licensed human agent. Called at the end of a completed intake, or immediately whenever the caller asks to speak to a person."
+  },
+  "$blocker": {
+    "issue": "Vapi documents warm transfer as available only with Twilio-based telephony. This project is currently running on Vapi's built-in number.",
+    "consequence": "Warm transfer may be silently degrading to a blind transfer. That matches the symptom already recorded in docs/decisions.md - 'connects immediately instead of holding'.",
+    "action": "Import the Twilio number into Vapi and assign this assistant to it BEFORE testing or tuning transfer behavior."
   },
   "destinations": [
     {
@@ -12,16 +17,12 @@
       "$numberNote": "Twilio ring group that rolls to voicemail. See docs/decisions.md.",
       "transferPlan": {
         "mode": "warm-transfer-experimental",
-        "$modeNote": "NOT blind transfer. An unanswered blind transfer drops the caller into silence, which directly undercuts the 'you won't have to repeat yourself' promise. Known issue: warm transfer has been reported connecting immediately instead of honoring the mode. Place a real test call and confirm hold-then-connect actually happens.",
-        "summaryPlan": {
-          "enabled": true,
-          "messages": [
-            {
-              "role": "system",
-              "content": "Summarize this intake for the licensed agent picking up the call, in under fifteen seconds of speech. Lead with the caller's name and program status (Medicare only, Medicaid only, dual-eligible, neither, or unsure). Then ZIP, medications, and cost priority. Flag anything the agent needs to know before speaking: whether the caller asked for a human, whether they declined Scope of Appointment consent, whether they are calling on behalf of someone else, and any medication recorded with low confidence. Do not recommend a plan or interpret eligibility."
-            }
-          ]
-        },
+        "$modeNote": "Dials the destination with the caller on hold, detects voicemail, and plays the fallback. NOT blind transfer - an unanswered blind transfer drops the caller into silence, which directly undercuts the 'you won't have to repeat yourself' promise.",
+        "$modeTradeoff": "This mode does NOT read a summary to the receiving agent. The modes that do - warm-transfer-with-summary and warm-transfer-wait-for-operator-to-speak-first-and-then-say-summary - take a summaryPlan with a {{transcript}} variable, but do not provide this mode's voicemail detection and fallback. Vapi does not appear to offer both in one mode. Currently optimizing for the failure path over the feature the product is sold on. See docs/open-questions.md.",
+        "voicemailDetectionType": "audio",
+        "$voicemailNote": "Required for the fallback to fire. 'audio' or 'transcript'. Vapi documents only Google or OpenAI as supported providers for voicemail detection in this mode - confirm the assistant is compatible, or the fallback silently never triggers and the caller lands in a voicemail box with no explanation.",
+        "holdAudioUrl": null,
+        "$holdAudioNote": "Optional. Replaces the default ringtone while the caller waits.",
         "fallbackPlan": {
           "message": "It looks like every agent is with someone right now. Everything we went over is saved for them, and someone will reach out to you shortly. Thanks so much for your patience today.",
           "endCallEnabled": true,

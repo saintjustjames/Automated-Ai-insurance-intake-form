@@ -3,11 +3,22 @@
 In order. Don't skip ahead.
 
 ## Phase 1 — Prove English (current)
+
+**Do the first item first.** Warm transfer is documented as Twilio-only and the
+assistant is currently on a Vapi-native number. Testing transfer behavior before
+fixing that means debugging a limitation instead of removing it.
+
+- [ ] **Import the Twilio number into Vapi and assign this assistant to it.**
+      Blocks every transfer test below.
+- [ ] Set `voicemailDetectionType` on the transfer plan, and confirm the
+      voicemail-detection provider is one Vapi supports for this mode.
+- [ ] Decide transfer mode: voicemail fallback vs. spoken summary to the agent.
+      See `docs/open-questions.md` #5.
 - [ ] Run a full live test call, greeting through transfer.
 - [ ] Confirm `transfer_to_licensed_agent` actually reaches a human.
 - [x] Decide the no-agent-available fallback. Warm transfer + voicemail.
-- [ ] Configure warm transfer in Vapi and **verify it actually holds** before
-      connecting. Known to silently fall back to blind transfer.
+- [ ] Verify warm transfer **actually holds** before connecting, on the Twilio
+      number. Known to silently behave as a blind transfer.
 - [ ] Set up the Twilio ring group and voicemail box the transfer lands on.
 - [ ] Assign someone to actually work that voicemail queue.
 - [ ] Tune voice preset and speed; confirm barge-in is on.

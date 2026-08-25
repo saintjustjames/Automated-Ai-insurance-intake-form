@@ -7,8 +7,16 @@ Answer these before building past them.
 pointed at a Twilio ring group that rolls to voicemail. See `docs/decisions.md`.
 
 Still open, and it's a real risk:
-- Multiple users have reported warm transfer connecting immediately instead of
-  honoring the configured mode. **Test it. Don't trust the setting.**
+- **Likely root cause found.** Vapi documents warm transfer as available *only
+  with Twilio-based telephony*, and this project is currently running on Vapi's
+  built-in number. The reported symptom — "connects immediately instead of
+  holding" — is what warm transfer degrading to blind would look like. Import
+  the Twilio number and re-test **before** touching any transfer setting.
+- `warm-transfer-experimental` also needs `voicemailDetectionType` set, and Vapi
+  documents only Google or OpenAI as supported voicemail-detection providers for
+  it. Without that, the fallback message never fires and an unanswered transfer
+  drops the caller into a voicemail box with no explanation — the exact outcome
+  the fallback exists to prevent.
 - Vapi cannot resume the assistant conversation after a failed transfer. The
   fallback message gets one sentence, then the call ends. There is no path back
   into the script — confirm the message alone is enough.
@@ -36,12 +44,36 @@ message tells the caller "someone will reach out to you shortly." If nobody is
 assigned to that queue, the system's failure path is a recorded lie to a senior
 who was promised a callback. Name a person before the number goes live.
 
-## 5. PHI and vendor BAAs — BLOCKING for real callers
-The intake collects medications, doses, doctors, and a pharmacy. That data flows
-through Vapi, Twilio, and eventually n8n. No BAA with any of them is mentioned
-anywhere in this project. See `docs/compliance.md` — needs a compliance contact,
-not a developer, and needs answering before the number takes live callers.
+## 5. Transfer mode: summary to the agent, or voicemail fallback?
+Vapi does not appear to offer both in one mode.
 
-## 6. End-to-end English test
+- `warm-transfer-experimental` (current): voicemail detection and a fallback
+  message. The receiving agent gets **no spoken summary**.
+- `warm-transfer-with-summary` / `...-wait-for-operator-to-speak-first-and-then-
+  say-summary`: an AI summary read to the agent before connecting. **No voicemail
+  fallback.**
+
+The summary modes deliver the actual product promise — the agent picks up already
+knowing who's on the line. The current mode protects the failure path instead.
+Both matter. Someone has to choose, or find a way to stack them.
+
+## 6. PHI, HIPAA mode, and the budget — BLOCKING for real callers
+The intake collects medications, doses, doctors, and a pharmacy, flowing through
+Vapi, Twilio, and eventually n8n. See `docs/compliance.md` for the underlying
+question of whether this is PHI — that one needs a compliance contact, not a
+developer.
+
+What research settled is what it *costs* if the answer is yes. Vapi's HIPAA mode
+requires a signed BAA (`security@vapi.ai`), needs Enterprise or a paid add-on at
+a reported **~$2,000/month**, is org-wide with no per-assistant exception, limits
+access to call logs and transcripts, restricts which LLM/TTS/STT providers can be
+used, and **does not store structured outputs by default** — which is the phase 5
+n8n plan.
+
+`docs/decisions.md` sets a **~$2k/month ceiling for the entire system.** HIPAA
+mode alone could consume all of it. That's a real collision and it can't be
+deferred: it changes the budget, the language roadmap, and phase 5's design.
+
+## 7. End-to-end English test
 Has the full script ever been run start to finish on a real call, through the
 transfer? Until that's done, everything downstream is built on an assumption.

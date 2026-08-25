@@ -9,11 +9,26 @@ The prompt only gets you halfway. Delivery does the rest.
 ## Interruption handling
 - **Turn barge-in ON.** Callers need to be able to talk over the AI. This single
   setting does more for "sounds human" than anything in the script.
-- **Give endpointing room.** The default "caller stopped talking" threshold is
-  tuned for people who answer briskly. Seniors reading a medication bottle out
-  loud pause mid-sentence. Too tight and the agent talks over them; too loose and
-  every turn feels laggy. Start slightly looser than default and tune on real
-  calls — step 12 is where you'll hear it break first.
+- **Give endpointing room.** The defaults are tuned for people who answer
+  briskly. Seniors reading a medication bottle out loud pause mid-sentence. Too
+  tight and the agent talks over them; too loose and every turn feels laggy.
+  Step 12 is where you'll hear it break first.
+
+Actual field names, with Vapi's documented defaults:
+
+| Field | Default | For this call flow |
+|---|---|---|
+| `startSpeakingPlan.waitSeconds` | 0.4s | **Raise it.** 0.4s is short for someone squinting at a pill bottle. |
+| `startSpeakingPlan.smartEndpointingPlan` | off | **Turn on.** Detects a real end-of-turn instead of counting silence. Providers include LiveKit, Deepgram Flux, Assembly, Krisp, Vapi. |
+| `stopSpeakingPlan.numWords` | ~0 | Words the caller must say before the agent stops. Keep low — barge-in is a feature here. |
+| `stopSpeakingPlan.voiceSeconds` | 0.2s | How long they must speak before the agent yields. |
+| `stopSpeakingPlan.backoffSeconds` | 1s | Pause before the agent resumes after being interrupted. |
+
+> **Smart endpointing interacts with the language plan.** Vapi documents LiveKit
+> smart endpointing as English-focused. Whatever provider you pick, re-run test
+> scenarios 28–30 in Spanish and Creole after enabling it — an endpointing model
+> tuned on English will cut off a Spanish speaker mid-sentence, and that failure
+> looks exactly like a bad transcriber.
 
 ## Timeouts and limits
 
@@ -37,9 +52,20 @@ It should be Vapi's `firstMessage` instead. Three reasons:
    time, not re-improvised per call.
 3. **Cost.** No tokens spent generating the same sentence thousands of times.
 
-Time-of-day still works — Vapi supports Liquid templating with `{{now}}`, so the
-greeting can branch on the hour without the model's help. Verify the exact
-templating syntax against current Vapi docs before pasting.
+Time-of-day still works. Vapi renders dynamic variables with **LiquidJS**, and
+`now` is built in, so the greeting can branch on the hour with no model call:
+
+```
+{{ "now" | date: "%H", "America/New_York" }}
+```
+
+Wrap it in a Liquid `{% if %}` on that hour to pick morning / afternoon /
+evening. Use `America/New_York` — Boynton Beach. Getting the timezone wrong
+greets Florida callers with "good morning" at 4am.
+
+**Do not ask the model to work out the time of day instead.** A community report
+puts prompt-driven time-of-day greetings at roughly 78% accuracy. Liquid resolves
+it deterministically before the call ever starts.
 
 **When you make this change, also delete step 1's spoken line from the system
 prompt** and replace it with a note that the greeting has already been delivered
@@ -58,6 +84,30 @@ Configure it as the assistant's structured-output schema so Vapi returns the
 intake as typed JSON at end-of-call. That JSON is what the n8n workflow in phase
 5 consumes — without it, phase 5 starts by re-parsing an English transcript,
 which is both lossy and unnecessary.
+
+**Use Structured Outputs, not `analysisPlan.structuredDataPlan`.** Vapi's docs
+say structured outputs supersede `analysisPlan` for new work. They're created as
+their own object and attached by id:
+
+```
+POST /structured-output
+{ "name": "Intake Record", "type": "ai",
+  "description": "...", "schema": { ...flows/intake-schema.json... } }
+
+// then on the assistant:
+{ "artifactPlan": { "structuredOutputIds": ["<id>"] } }
+```
+
+Results land at `call.artifact.structuredOutputs` within a few seconds of the
+call ending, and show in the dashboard call log. That's the n8n trigger payload.
+
+**If you use the older `analysisPlan` path instead, drop every `pattern`.** Vapi
+removed regex support from `analysisPlan.structuredDataPlan.schema` in June 2025.
+`intake-schema.json` no longer uses one — a ZIP that fails a regex gets dropped
+entirely, which is strictly worse than capturing whatever the caller said.
+
+Also set `minMessagesThreshold` (default 2) so a two-second wrong-number call
+doesn't get analyzed as an intake.
 
 Two things the schema is deliberately strict about, and the extraction prompt
 should repeat:
@@ -99,15 +149,55 @@ thinner** — verify before promising it live.
 
 ## Transfer configuration
 
+> ### ⚠️ Warm transfer is documented as Twilio-only. We are on a Vapi number.
+>
+> Vapi's docs state warm transfer "is currently available only with Twilio-based
+> telephony systems." This project is currently running on **Vapi's built-in
+> number**, not the imported Twilio number.
+>
+> That is very likely the cause of the "known issue" recorded below — warm
+> transfer appearing to connect immediately instead of holding. It may not be a
+> Vapi bug at all. It may be warm transfer degrading to blind because the
+> telephony provider doesn't support it.
+>
+> **Fix the number before debugging the transfer.** Import the Twilio number into
+> Vapi and assign the assistant to it, then re-test. Chasing transfer behavior on
+> a Vapi-native number risks tuning around a limitation instead of removing it.
+> This reorders Phase 1 — see `docs/roadmap.md`.
+
 **Mode:** `warm-transfer-experimental` — *not* blind transfer.
 
-Vapi dials the destination and holds the caller with a ringtone. The calls
+Vapi dials the destination and holds the caller with hold audio. The calls
 connect only if someone answers. If voicemail is detected or nobody picks up,
 Vapi plays the fallback message and the call ends.
 
 **Destination:** a Twilio ring group that rolls to voicemail.
 
-**Hold audio:** optionally set `holdAudioUrl` to replace the default ringtone.
+**`holdAudioUrl`:** optional; replaces the default ringtone while the caller
+waits.
+
+**`voicemailDetectionType`:** `"audio"` or `"transcript"`. **Set this.** The
+fallback plan is what makes this mode worth choosing, and voicemail detection is
+what triggers it. Vapi documents only **Google or OpenAI** as supported providers
+for voicemail detection under this mode — confirm the assistant's configuration
+is compatible, or the fallback silently never fires and an unanswered transfer
+lands the caller in a voicemail box with no explanation.
+
+### Mode choice is a real tradeoff — not yet decided
+
+`warm-transfer-experimental` gets the **voicemail fallback**. It does **not** give
+the receiving agent a spoken summary.
+
+The modes that do — `warm-transfer-with-summary`, and
+`warm-transfer-wait-for-operator-to-speak-first-and-then-say-summary` — read an
+AI summary to the agent before connecting, using `summaryPlan` with a
+`{{transcript}}` variable. That is the literal product promise: the agent picks
+up already knowing who's on the line.
+
+So the current configuration protects the failure path and gives up the feature
+the whole product is sold on. The reverse gives up the failure path. Both matter;
+Vapi does not appear to offer both in one mode. **This needs a decision** — see
+`docs/open-questions.md`.
 
 **fallbackPlan message** — paste this exactly:
 
@@ -121,6 +211,26 @@ confirm the hold-then-connect behavior actually happens. Don't trust the setting
 
 **Hard dependency:** that fallback message promises a human follow-up. Someone
 has to actually work the voicemail queue.
+
+## HIPAA mode — decide before launch, not after
+
+Vapi has a real HIPAA mode. It is not a checkbox you flip later without
+consequences, and it collides with several choices already made here.
+
+| Fact | Consequence for this project |
+|---|---|
+| Requires a **signed BAA** first — start at `security@vapi.ai` | Lead time. Not a launch-day action. |
+| Requires **Enterprise or a paid HIPAA add-on**; reported around **$2,000/mo**, with zero-data-retention a separate ~$1,000/mo | `docs/decisions.md` sets a **~$2k/month ceiling for the whole system**. HIPAA mode alone could consume it. This is a genuine budget collision and someone has to make a call on it. |
+| **Organization-level only.** Applies to every assistant, no per-assistant exception, cannot be enabled via API | Turning it on for this affects anything else in the same Vapi org, now or later. |
+| **Limits access to call logs and transcriptions** | Debugging gets harder. Do the tuning in `tests/call-scenarios.md` *before* enabling, while you can still read transcripts. |
+| **Structured outputs are not stored by default** under HIPAA | Directly conflicts with the phase 5 n8n plan above. Overridable per-output for non-sensitive fields — but "non-sensitive" excludes the medication list, which is the whole point. |
+| Restricts LLM, TTS, and STT to **HIPAA-compliant providers** | May rule out the multilingual transcriber chosen below, and the warmer voice preset. Check availability before committing to the Spanish/Creole roadmap. |
+| **Mutually exclusive with Zero Data Retention** | Pick one. |
+
+None of that decides whether HIPAA mode is *required* — that's the compliance
+question in `docs/compliance.md`. It does mean the answer changes the
+architecture, the budget, and the language roadmap, so it can't be deferred to
+after launch.
 
 ## What Vapi cannot do here
 Vapi **cannot resume the assistant conversation** after a failed transfer. The
@@ -137,3 +247,15 @@ Twilio account and credentials exist and are connected if needed.
 - Saving to any CRM or database
 - Placing an outbound callback
 - Enrollment of any kind
+
+## Sources
+
+Verified against Vapi documentation, August 2026. Vapi's API changes often —
+re-check before relying on any field name here.
+
+- Call forwarding / transferPlan modes: https://docs.vapi.ai/call-forwarding
+- Call analysis / analysisPlan: https://docs.vapi.ai/assistants/call-analysis
+- Structured outputs: https://docs.vapi.ai/assistants/structured-outputs-quickstart
+- Speech / endpointing plans: https://docs.vapi.ai/customization/speech-configuration
+- Dynamic variables and LiquidJS date filters: https://docs.vapi.ai/assistants/dynamic-variables
+- HIPAA compliance: https://docs.vapi.ai/security-and-privacy/hipaa

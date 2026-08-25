@@ -26,13 +26,20 @@ style preference — do not soften it in any prompt edit.
 
 | Layer | Tool | Status |
 |---|---|---|
-| Phone line | Twilio | Connected. Currently using Vapi's built-in number instead of the Twilio trial number. |
+| Phone line | Twilio | Connected, but **not in use** — currently on Vapi's built-in number. ⚠️ See below. |
 | Conversation | Vapi | Live. Single assistant, full script loaded. |
-| Live handoff | `transfer_to_licensed_agent` (Vapi tool) | Configured as warm transfer w/ voicemail fallback. **Untested end to end.** |
+| Live handoff | `transfer_to_licensed_agent` (Vapi tool) | Configured as warm transfer w/ voicemail fallback. **Untested end to end, and probably degrading to blind transfer.** |
 | Post-call automation | n8n | Not built. Planned. |
 | Carrier/member data | Ritter → IntegrityCONNECT | Not built. Needs real dev work. |
 
 Account email for all services: `prepandsealinsurance@gmail.com`
+
+> ⚠️ **The number and the transfer are in conflict.** Vapi documents warm
+> transfer as available only with Twilio-based telephony, and this assistant is
+> on a Vapi-native number. That is the most likely explanation for the transfer
+> "connecting immediately instead of holding." Import the Twilio number before
+> testing or tuning anything about the transfer — otherwise you're debugging a
+> platform limitation, not a configuration.
 
 ## Where things live
 

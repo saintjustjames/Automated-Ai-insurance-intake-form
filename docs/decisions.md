@@ -40,6 +40,20 @@ Settled. Don't relitigate without a reason.
 - CMS-required call recordings and retention are held at **Ritter** — not stored
   in house.
 
+## Verified against Vapi docs, 2026-08-25
+
+Everything below in this section was checked against Vapi's live documentation
+rather than assumed. Three corrections came out of it:
+
+- **Warm transfer is documented as Twilio-only.** We are on a Vapi-native
+  number, so the mode below may never have been in effect. This reorders Phase 1.
+- **`warm-transfer-experimental` needs `voicemailDetectionType`**, with only
+  Google or OpenAI supported as detection providers for that mode. Without it the
+  fallback plan cannot fire.
+- **`summaryPlan` does not belong to this mode.** Reading a summary to the
+  receiving agent requires one of the `-with-summary` modes, which in turn do not
+  offer the voicemail fallback. That tradeoff is now open question #5.
+
 ## Transfer failure handling
 *Decided 2026-08-25.*
 

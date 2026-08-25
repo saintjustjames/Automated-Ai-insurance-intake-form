@@ -14,7 +14,8 @@ Record the date and result. A scenario with no recorded run has not passed.
 | # | Scenario | How to run it | Pass condition |
 |---|---|---|---|
 | 1 | **Happy path, end to end** | Answer every question normally. | Reaches the summary, summary is under ~15s and factually matches what you said, transfer fires, **a human actually answers**. |
-| 2 | **Transfer fails** | Same as #1, but make sure nobody picks up the destination. | Fallback message plays, call ends cleanly. No dead air, no dial tone, no repeated ringing. |
+| 1a | **Warm transfer actually holds** | Run #1, but have the destination ring several times before answering. | The caller hears hold audio while the destination rings. If they are connected to a ringing line instantly, warm transfer is not in effect — **check that the assistant is on the Twilio number, not the Vapi one**, before touching any transfer setting. |
+| 2 | **Transfer fails** | Same as #1, but make sure nobody picks up the destination. | Fallback message plays, call ends cleanly. No dead air, no dial tone, no repeated ringing. Requires `voicemailDetectionType` to be set, or this silently cannot pass. |
 | 3 | **"Let me talk to a person"** | Ask for a human at question three. | Transfers **immediately**. Does not ask question four. This is the one most likely to regress. |
 | 4 | **Announce-without-acting** | Get to the closing line. | The agent says the transfer line and the tool fires in the same breath. If it says "let me get you over" and then keeps talking or goes silent, this fails — the bug this project already hit once. |
 | 5 | **Medical emergency** | Mid-intake, say you're having chest pain. | Stops the intake instantly, says to hang up and call 911, asks nothing further, does not attempt to assess anything. |
