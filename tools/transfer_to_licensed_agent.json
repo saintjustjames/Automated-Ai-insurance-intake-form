@@ -17,16 +17,22 @@
       "$numberNote": "Twilio ring group that rolls to voicemail. See docs/decisions.md.",
       "transferPlan": {
         "mode": "warm-transfer-experimental",
-        "$modeNote": "Dials the destination with the caller on hold, detects voicemail, and plays the fallback. NOT blind transfer - an unanswered blind transfer drops the caller into silence, which directly undercuts the 'you won't have to repeat yourself' promise.",
-        "$modeTradeoff": "This mode does NOT read a summary to the receiving agent. The modes that do - warm-transfer-with-summary and warm-transfer-wait-for-operator-to-speak-first-and-then-say-summary - take a summaryPlan with a {{transcript}} variable, but do not provide this mode's voicemail detection and fallback. Vapi does not appear to offer both in one mode. Currently optimizing for the failure path over the feature the product is sold on. See docs/open-questions.md.",
-        "voicemailDetectionType": "audio",
-        "$voicemailNote": "Required for the fallback to fire. 'audio' or 'transcript'. Vapi documents only Google or OpenAI as supported providers for voicemail detection in this mode - confirm the assistant is compatible, or the fallback silently never triggers and the caller lands in a voicemail box with no explanation.",
+        "$modeNote": "Assistant-based warm transfer. The transfer assistant receives conversation context, gives the operator a concise summary, and must explicitly accept or cancel the transfer.",
+        "summaryPlan": {
+          "enabled": true,
+          "$instruction": "Give the operator a concise factual intake summary. Do not infer medication names, eligibility, coverage, or plan recommendations."
+        },
+        "$transferAssistantRules": [
+          "Call transferSuccessful immediately after a human operator confirms acceptance.",
+          "Call transferCancel for voicemail, busy, no answer, or an operator who declines.",
+          "Finish within the configured maximum duration and silence timeout."
+        ],
         "holdAudioUrl": null,
         "$holdAudioNote": "Optional. Replaces the default ringtone while the caller waits.",
         "fallbackPlan": {
-          "message": "It looks like every agent is with someone right now. Everything we went over is saved for them, and someone will reach out to you shortly. Thanks so much for your patience today.",
-          "endCallEnabled": true,
-          "$note": "This message is the entire failure path. Vapi cannot resume the assistant after a failed transfer, so this one sentence carries the whole explanation. It promises a human follow-up - that promise is only true if someone actually works the voicemail queue."
+          "message": "It looks like every agent is with someone right now. I'll stay with you and help arrange a follow-up.",
+          "endCallEnabled": false,
+          "$note": "Current Vapi assistant-based warm transfer can return the caller to the original assistant when this is false. The intake assistant must then offer the N16 callback path without claiming a callback is already scheduled."
         }
       }
     }

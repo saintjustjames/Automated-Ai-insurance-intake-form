@@ -12,8 +12,9 @@ fixing that means debugging a limitation instead of removing it.
       Blocks every transfer test below.
 - [ ] Set `voicemailDetectionType` on the transfer plan, and confirm the
       voicemail-detection provider is one Vapi supports for this mode.
-- [ ] Decide transfer mode: voicemail fallback vs. spoken summary to the agent.
-      See `docs/open-questions.md` #5.
+- [ ] Configure assistant-based `warm-transfer-experimental` with a concise
+      operator summary, explicit `transferSuccessful` / `transferCancel` rules,
+      and `fallbackPlan.endCallEnabled: false` so N16 can run after failure.
 - [ ] Run a full live test call, greeting through transfer.
 - [ ] Confirm `transfer_to_licensed_agent` actually reaches a human.
 - [x] Decide the no-agent-available fallback. Warm transfer + voicemail.
@@ -31,13 +32,17 @@ fixing that means debugging a limitation instead of removing it.
       `prompts/CHANGELOG.md` 2026-08-25c).
 - [ ] Run the **P0 block** in `tests/call-scenarios.md`. Blocks go-live.
 - [ ] Resolve PHI / BAA coverage with a compliance contact. Blocks real callers.
+- [ ] Configure and counsel-approve `recordingConsentPlan`; document the
+      recording start boundary, refusal path, retrieval, and retention proof.
+- [ ] Obtain carrier approval for the exact N6 SOA script and determine whether
+      a TPMO verbal disclaimer is required.
 - [ ] Set silence timeout and max call duration explicitly.
 - [ ] Move the greeting to `firstMessage` and delete step 1's spoken line from
       the prompt in the same change.
 - [ ] Wire `flows/intake-schema.json` up as the structured-output schema — phase
       5 depends on it and it's cheaper to do now than to retrofit.
-- [ ] **Turn on prompt caching.** Free, no quality risk, biggest single cost
-      saving. Confirm cached-token counts are non-zero in the call logs.
+- [ ] Evaluate prompt caching using actual cache-write/read pricing and observed
+      hit rate. Enable it only when logs show a net saving.
 - [ ] Try a cheaper model, then re-run P0 plus scenarios 3, 4, 19, 27. Keep it
       only if it passes clean. See `docs/cost-model.md`.
 

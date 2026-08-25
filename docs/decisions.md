@@ -10,12 +10,16 @@ Settled. Don't relitigate without a reason.
 - Callers are **inbound**, on hold. Not outbound cold calls.
 
 ## Script
+- The licensed agent identified in the recorded SOA is **James Saint-Just**.
+  His contact number is **+1 561-247-1443**, spoken digit by digit as
+  "five six one, two four seven, one four four three."
 - Branching, not flat. Dual-eligible, Medicare-only, and Medicaid-only callers
   each get a different follow-up.
 - Doctors, medications, and pharmacy are three separate questions.
 - Phone number is captured early, before ZIP.
-- Consent decline does **not** end the call. The intake continues; the agent just
-  stops naming plan types.
+- SOA decline does **not** end the call, but N7–N13 are skipped. The assistant
+  asks only neutral callback timing, summarizes prior contact facts, and
+  transfers. The licensed agent must obtain valid scope before product discussion.
 - Veteran question included, with a thank-you line. It is a courtesy and an
   eligibility signal, not a qualifying gate — nothing downstream branches on it.
 - Summary read-back stays under ~15 seconds. Essentials only.
@@ -37,10 +41,10 @@ Settled. Don't relitigate without a reason.
 - **Run on the Twilio number, not Vapi's built-in one.** *Decided 2026-08-25.*
   Warm transfer is documented as Twilio-only, and warm transfer is the whole
   handoff design. Steps in `config/vapi-settings.md`.
-- **Prompt caching before model downgrade.** *Decided 2026-08-25.* Caching is
-  free and saves more; a cheaper model risks exactly the instruction-following
-  behaviors this agent depends on. Both are worth doing, in that order. See
-  `docs/cost-model.md`.
+- **Measure prompt caching before model downgrade.** *Updated 2026-08-25.* Cache
+  reads are discounted but cache writes can cost more, so enable it only when
+  observed reuse produces a net saving. A cheaper model still requires the full
+  regression suite. See `docs/cost-model.md`.
 - **A model change is not shippable until the P0 test block passes.** The test
   suite is what makes trying a cheaper model a measurable experiment instead of a
   gamble.
@@ -60,8 +64,9 @@ Settled. Don't relitigate without a reason.
   calls end at 7pm on a Saturday and something has to be running. See
   `automation/README.md`.
 - Budget target: usage-based, roughly $2k/month ceiling, no big upfront cost.
-- CMS-required call recordings and retention are held at **Ritter** — not stored
-  in house.
+- Recording and retention responsibility is unresolved until the Ritter
+  contract, full-call capture boundary, retrieval procedure, access controls,
+  and retention proof are documented.
 
 ## Verified against Vapi docs, 2026-08-25
 
@@ -73,9 +78,10 @@ rather than assumed. Three corrections came out of it:
 - **`warm-transfer-experimental` needs `voicemailDetectionType`**, with only
   Google or OpenAI supported as detection providers for that mode. Without it the
   fallback plan cannot fire.
-- **`summaryPlan` does not belong to this mode.** Reading a summary to the
-  receiving agent requires one of the `-with-summary` modes, which in turn do not
-  offer the voicemail fallback. That tradeoff is now open question #5.
+- **Current assistant-based `warm-transfer-experimental` supports operator
+  context and a fallback.** The transfer assistant explicitly calls
+  `transferSuccessful` after human acceptance and `transferCancel` for
+  voicemail, busy, no answer, or rejection.
 
 ## Transfer failure handling
 *Decided 2026-08-25.*
@@ -86,12 +92,9 @@ rather than assumed. Three corrections came out of it:
 - Destination is a **Twilio ring group that rolls to voicemail**, so there's
   somewhere to land.
 - A **fallbackPlan message** plays if the agent doesn't answer or voicemail is
-  detected. Exact wording lives in `config/vapi-settings.md`.
-
-**Constraint that drove this:** Vapi cannot resume the assistant conversation
-after a failed transfer. An earlier plan — have the AI come back and run the
-callback path — is not possible. The fallback message gets one sentence, then
-the call ends. So that sentence has to carry the whole explanation.
+  detected. With `endCallEnabled: false`, control returns to the intake
+  assistant, which runs N16 and offers callback collection without claiming a
+  callback is already scheduled.
 
 Blind transfer was rejected because an unanswered blind transfer drops the caller
 into silence, which directly undercuts the "you won't have to repeat yourself"

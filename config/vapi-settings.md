@@ -6,6 +6,27 @@ The prompt only gets you halfway. Delivery does the rest.
 - Pick a **warmer, natural preset** — not the default.
 - Set speed **slightly below default.** Robotic pacing undoes good writing.
 
+## Recording consent — REQUIRED BEFORE LIVE CALLERS
+
+Use Vapi's `recordingConsentPlan` before the assistant begins substantive
+intake. It must disclose recording and obtain affirmative consent before name,
+phone, coverage, doctor, medication, or pharmacy capture. Carrier compliance or
+counsel must approve the exact wording, recording start boundary, refusal
+behavior, and multistate policy. Store the result and timestamp with
+authoritative call metadata.
+
+## SOA runtime variables
+
+Configure these Vapi variables before deployment:
+
+| Variable | Value | Status |
+|---|---|---|
+| `soa_agent_name` | `James Saint-Just` | Set 2026-08-25 |
+| `soa_agent_phone_spoken` | `five six one, two four seven, one four four three` | Set 2026-08-25 |
+
+Canonical contact number: `+15612471443`. The spoken value is written digit by
+digit for the voice. Verify both variables render correctly in a test call.
+
 ## Background noise is cutting the agent off — the fix
 
 **Symptom:** the agent stops mid-sentence when nobody interrupted it. A TV in the
@@ -269,34 +290,32 @@ for voicemail detection under this mode — confirm the assistant's configuratio
 is compatible, or the fallback silently never fires and an unanswered transfer
 lands the caller in a voicemail box with no explanation.
 
-### Mode choice is a real tradeoff — not yet decided
+### Current recommended mode: assistant-based warm transfer
 
-`warm-transfer-experimental` gets the **voicemail fallback**. It does **not** give
-the receiving agent a spoken summary.
+Use `warm-transfer-experimental` with a transfer assistant. Current Vapi docs
+support both operator context and a failure path in this mode. The transfer
+assistant receives the previous conversation, gives the operator a concise
+factual summary, calls `transferSuccessful` after a human accepts, and calls
+`transferCancel` for voicemail, busy, no answer, or rejection.
 
-The modes that do — `warm-transfer-with-summary`, and
-`warm-transfer-wait-for-operator-to-speak-first-and-then-say-summary` — read an
-AI summary to the agent before connecting, using `summaryPlan` with a
-`{{transcript}}` variable. That is the literal product promise: the agent picks
-up already knowing who's on the line.
-
-So the current configuration protects the failure path and gives up the feature
-the whole product is sold on. The reverse gives up the failure path. Both matter;
-Vapi does not appear to offer both in one mode. **This needs a decision** — see
-`docs/open-questions.md`.
+Set `fallbackPlan.endCallEnabled` to `false` when the original intake assistant
+should resume and offer the N16 callback path. Bound the transfer assistant with
+explicit duration and silence timeouts. In testing, an
+`assistant-forwarded-call` ended reason proves only that transfer was initiated,
+not that a human answered.
 
 **fallbackPlan message** — paste this exactly:
 
-> "It looks like every agent is with someone right now. Everything we went over
-> is saved for them, and someone will reach out to you shortly. Thanks so much
-> for your patience today."
+> "It looks like every agent is with someone right now. I'll stay with you and
+> help arrange a follow-up."
 
 **Known issue:** multiple users have reported warm transfer connecting
 immediately instead of honoring the configured mode. Place a real test call and
 confirm the hold-then-connect behavior actually happens. Don't trust the setting.
 
-**Hard dependency:** that fallback message promises a human follow-up. Someone
-has to actually work the voicemail queue.
+**Hard dependency:** N16 may collect a callback request, but it must not claim
+the request is saved or scheduled until the authenticated callback workflow is
+deployed and monitored.
 
 ## HIPAA mode — decide before launch, not after
 
@@ -318,11 +337,12 @@ question in `docs/compliance.md`. It does mean the answer changes the
 architecture, the budget, and the language roadmap, so it can't be deferred to
 after launch.
 
-## What Vapi cannot do here
-Vapi **cannot resume the assistant conversation** after a failed transfer. The
-fallback message plays, then the call ends. There is no path back into the
-script, so the AI can't collect a preferred callback time at that point. Don't
-write a prompt that assumes otherwise.
+## Failed-transfer behavior
+Current Vapi assistant-based warm transfer can resume the original assistant
+after failure when `fallbackPlan.endCallEnabled` is `false`. The transfer
+assistant must explicitly call `transferCancel`; otherwise voicemail or a
+declined transfer may connect incorrectly. Resume at N16 and collect callback
+details only after the caller agrees.
 
 ## Phone number — switching to Twilio
 
@@ -351,8 +371,10 @@ back to.
 
 ## Model choice and prompt caching
 
-**Turn on prompt caching before changing the model.** It's free, carries no
-quality risk, and saves more than a downgrade does. The system prompt is re-sent
+**Evaluate prompt caching before changing the model.** Cache reads are
+discounted, but cache writes can cost more than ordinary input, so savings depend
+on prompt stability and reuse. Verify the real cache-hit rate and net cost in
+call logs. The system prompt is re-sent
 on every turn of the call — roughly 72,000 input tokens across a full intake,
 nearly all of it the same static text. Anthropic's prefix caching takes about 90%
 off that.

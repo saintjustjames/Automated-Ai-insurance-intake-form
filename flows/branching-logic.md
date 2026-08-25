@@ -74,8 +74,8 @@ Trilingual offer, then: *"Sound okay?"*
 | Answer | Route |
 |---|---|
 | Yes / anything affirmative | → N2 |
-| No | "Totally fine — stay on the line and an agent will be right with you." → `end_intake_call` |
-| Responds in Spanish or Creole | GI-12 language switch, then → N2 |
+| No | "Totally fine — let me connect you with a licensed agent now." → `transfer_to_licensed_agent` in the same turn |
+| Responds in Spanish or Creole | GI-12 language switch, repeat the AI disclosure and consent question in that language, then remain at G0 until yes/no |
 | Silence | GI-6 ladder |
 
 > Blocking on purpose. Running an intake on someone who declined it is the one
@@ -100,7 +100,7 @@ Trilingual offer, then: *"Sound okay?"*
 | Answer | Effect |
 |---|---|
 | Self | `is_proxy = false`. Default path. |
-| Helping someone else | `is_proxy = true`. **Every subsequent clinical/coverage answer describes the beneficiary, not the caller.** Phone and callback consent still describe the *caller*. |
+| Helping someone else | `is_proxy = true`. Capture `beneficiary_name`, `proxy_relationship`, and `beneficiary_present`, one question at a time. **Every subsequent clinical/coverage answer describes the beneficiary, not the caller.** Phone and callback consent still describe the *caller*. |
 | Unclear | Ask once more, then default to self and flag `unclear` for the agent. |
 
 > The proxy split is a data-labeling branch, not a wording branch. The questions
@@ -132,21 +132,44 @@ Trilingual offer, then: *"Sound okay?"*
 
 ---
 
-### N6 — SOA consent *(BEHAVIOR GATE — does not block the call)*
+### N6 — Recorded Scope of Appointment *(BEHAVIOR GATE — does not block intake)*
 
-*"…quick verbal okay to go over your Medicare options today — Medicare
-Advantage, prescription drug plans, Medicare Supplement, and hospital indemnity
-or other supplemental plans. That alright with you?"*
+The SOA must be read verbatim and must identify the licensed agent assigned to
+the call. `soa_agent_name` and `soa_agent_phone_spoken` are required Vapi
+variables; **do not deploy this node with either value missing**.
+
+For a caller seeking coverage for themself, read:
+
+*"Before any plan options are discussed, I need to document the scope for
+today's call. Today is [the current date]. You're agreeing that
+[soa_agent_name], a licensed agent with Prep and Seal Insurance who can be
+reached at [soa_agent_phone_spoken], may discuss Medicare Advantage,
+prescription drug plans, Medicare Supplement, and hospital indemnity or other
+supplemental plans with you. There's no obligation to enroll, your current or
+future Medicare enrollment status won't be affected, and you won't be enrolled
+automatically. Do you agree to this scope?"*
+
+The bracketed values above describe runtime substitutions; they must never be
+spoken literally. The live prompt uses Vapi Liquid variables instead.
+
+If `is_proxy = true`, do not ask the proxy to grant the beneficiary's SOA. Say
+the licensed agent will confirm the required permission and scope, then transfer
+with the partial intake. Do not continue into plan-related questions.
 
 | Answer | Effect |
 |---|---|
-| Yes | `soa_consent = granted`. Normal path. |
-| No **or** unsure | `soa_consent = declined` / `unsure`. "No problem at all — I'll just get a few basics down and your agent can cover the details." **Set `plan_naming_suppressed = true` for the rest of the call.** The intake continues in full. |
+| Yes | `soa_consent = granted`. Store the audit fields below. Normal path. |
+| No **or** unsure | `soa_consent = declined` / `unsure`. "No problem at all — I won't discuss plan options. I can still connect you with a licensed agent." **Set `plan_naming_suppressed = true` and route to N14.** Skip N7–N13; the licensed agent must obtain a valid SOA before any scoped product discussion. |
+
+For every attempt, store `soa_script_version`, `soa_timestamp`,
+`soa_product_scope`, `soa_agent_name`, `soa_agent_phone`, `soa_response_verbatim`,
+and whether the caller was the beneficiary. The call recording remains the
+primary evidence.
 
 **What suppression actually means:** from this point the agent must not name a
-plan type or product line again — no "Medicare Advantage," no "supplement," no
-"Part D." It can still ask every remaining question, because none of them require
-naming a product. Nothing is skipped; only vocabulary narrows.
+plan type, Medicare/Medicaid program, Medicare Part, product line, benefit, or
+coverage qualifier. N7–N13 are skipped. Only neutral callback timing, a short
+summary of already collected contact facts, and transfer remain.
 
 > Declining consent does not end the call. These are inbound,
 > beneficiary-initiated callers already waiting for an agent. See
@@ -203,9 +226,9 @@ medication's hard to pronounce, just spell it or tell me what it's for."*
 Then, one at a time, waiting for a complete answer between each:
 
 1. *"Who are the doctors you see regularly?"* → `doctors[]`
-2. *"What medications are you taking these days? If you know the dose in
-   milligrams, throw that in — no worries if not."* → `medications[]`
-   (`{name, dose_mg?, verbatim}`)
+2. *"What medications are you taking these days? If you know the dose or
+   directions, include them — no worries if not."* → `medications[]`
+   (`{name, dose_verbatim?, strength_value?, strength_unit?, frequency?, verbatim}`)
 3. *"Which pharmacy do you use?"* → `pharmacy`
 
 **Per-medication spell-back loop:** if a name isn't clearly heard, spell it back
@@ -243,8 +266,10 @@ fails and the voicemail queue has to be worked.
 
 ### N15 — Summary and transfer
 
-Read back **essentials only** — name, ZIP, program status, medications, cost
-priority. Under ~15 seconds. Then *"Does that all sound right?"*
+Read back **essentials only** — caller/beneficiary identity, ZIP or county,
+program status, medication count, any low-confidence medication requiring human
+confirmation, and cost priority. Do not read the full medication list unless the
+caller asks. Under ~15 seconds. Then *"Does that all sound right?"*
 
 | Answer | Route |
 |---|---|
@@ -254,11 +279,12 @@ priority. Under ~15 seconds. Then *"Does that all sound right?"*
 Then: *"Perfect, [name] — you did great. Let me get you over to a licensed agent
 now. They'll have everything we just went through."* → `transfer_to_licensed_agent`
 
-**Control ends here.** Warm transfer; Vapi holds the caller and connects only if
-an agent answers. On no-answer, Vapi plays the fallback message and the call
-ends — **the assistant does not get control back and cannot run the callback
-path from here.** Do not write a closing line that assumes the transfer
-succeeds. Fallback wording lives in `config/vapi-settings.md`.
+Assistant-based warm transfer holds the caller while the transfer assistant
+speaks to the destination. A human acceptance calls `transferSuccessful`.
+Voicemail, busy, no answer, or rejection calls `transferCancel`. With
+`fallbackPlan.endCallEnabled: false`, control returns to this assistant and it
+runs N16. An initiated transfer is not counted as successful until a human
+accepts.
 
 ---
 
@@ -271,7 +297,8 @@ another time?"*
 
 | Answer | Route |
 |---|---|
-| Yes | Ask preferred day/time → `callback_preference`. If `callback_consent` wasn't captured at N4.2, ask now. Then: "Got it — that'll be waiting for your agent." → `end_intake_call` |
+| Yes, phone exists | Ask preferred day/time → `callback_preference`. If consent was not granted for that exact number, ask now. Then end without claiming the callback is already scheduled. |
+| Yes, phone is null | Ask for a callback number, read it back and confirm, then ask preferred day/time and callback consent for that exact number. If no number is provided, explain that callback cannot be arranged and end. |
 | No | "Understood. Thanks for calling, [name]." → `end_intake_call` |
 
 Never push back. One offer, then respect the answer.
@@ -280,10 +307,11 @@ Never push back. One offer, then respect the answer.
 
 ## Known gaps
 
-1. **Post-transfer failure is a dead end.** Vapi can't resume the assistant, so a
-   caller whose transfer fails gets one fallback sentence and a dial tone. The
-   promise in that sentence is only true if someone actually works the voicemail
-   queue. *(`docs/open-questions.md` #1)*
+1. **Post-transfer failure now depends on correct transfer-assistant actions.**
+   `transferCancel` plus `fallbackPlan.endCallEnabled: false` returns the caller
+   to N16. Missing or incorrect accept/cancel rules can still connect voicemail
+   or strand the caller. Test the destination leg, not only the initial transfer
+   event. *(`docs/open-questions.md` #1)*
 2. **GI-12 language switch is unproven for Haitian Creole.** If transcription
    can't hold Creole, GI-12 should route Creole callers straight to GI-4
    (immediate human transfer) rather than attempt an intake in a language the

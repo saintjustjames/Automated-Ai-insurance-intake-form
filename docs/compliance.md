@@ -1,81 +1,95 @@
 # Compliance Notes
 
-Not legal advice. These are the constraints the script was built around.
+Not legal advice. Carrier compliance or qualified counsel must approve the live
+script, recording design, and data flow before real callers use it.
 
 ## Scope of Appointment
-- The 48-hour SOA waiting period **does not apply** to beneficiary-initiated
-  inbound calls. These callers are inbound and on hold, so it doesn't bind here.
-- CMS is removing the 48-hour rule entirely as of **October 1, 2026** — verified
-  against the CY2027 final rule (published April 2026), which eliminates the
-  waiting period at 42 CFR 422.2264(c)(3) and 423.2264(c)(3).
-- **It is still in effect right now.** Until Oct 1, 2026 the 48-hour rule still
-  binds *scheduled* personal marketing appointments. This intake flow is
-  unaffected either way, because it runs on inbound beneficiary-initiated calls
-  — but don't let the Oct 1 date get read as "the rule is already gone" for the
-  rest of the agency's business.
-- After Oct 1, a valid SOA is **still required** before any plan-specific
-  discussion. What changes is only the waiting period: SOA and appointment may
-  happen in the same call. That is exactly what step 6 of the script does.
 
-Sources: [Hall Render](https://hallrender.com/2026/06/01/cms-revises-medicare-advantage-marketing-guidance-for-scope-of-appointment-forms/),
-[PSM Brokerage](https://www.psmbrokerage.com/blog/the-48-hour-scope-of-appointment-rule-is-gone-what-medicare-agents-need-to-know),
-[Lourie Agents](https://www.lourieagents.com/cms-removes-the-48-hour-soa-waiting-period-what-agents-need-to-know-for-cy-2027/).
-Have your compliance contact confirm before relying on any of it.
-- Consent is still collected verbally on the call, covering the full product
-  line: Medicare Advantage, prescription drug plans, Medicare Supplement, and
-  hospital indemnity / other supplemental.
-- Declining consent does not end the call. The intake continues; the agent stops
-  naming plan types.
-- Callback consent is captured separately and never blocks anything.
+- CMS's 48-hour SOA waiting rule applies to scheduled personal marketing
+  appointments and excludes inbound calls. That does not remove the obligation
+  to agree upon and document scope before plan-product marketing.
+- CMS removes the waiting period effective October 1, 2026, but retains advance
+  SOA. Do not read that effective date as eliminating the SOA itself.
+- N6 records the date, assigned licensed-agent contact, product categories,
+  no-obligation statement, no Medicare-enrollment-impact statement,
+  no-automatic-enrollment statement, and the caller's verbatim response.
+- `soa_agent_name` and `soa_agent_phone_spoken` are required deployment
+  variables. If either is missing, the assistant transfers rather than reading
+  an incomplete scope.
+- A proxy does not grant the beneficiary's SOA in this flow. The licensed agent
+  confirms authority, permission, and scope directly.
+- Declining or being unsure does not end the call, but N7–N13 are skipped. The
+  licensed agent must obtain valid scope before product discussion.
+
+Primary sources: [CMS CY2025 Agent/Broker Training, Q22](https://www.cms.gov/files/document/cy2025-agent-broker-training-testing-guidelines.pdf),
+[CMS Medicare Communications and Marketing Guidelines, SOA elements](https://www.cms.gov/files/document/medicare-communications-marketing-guidelines-2-9-2022.pdf),
+and the [CY2027 final rule](https://www.govinfo.gov/content/pkg/FR-2026-04-06/pdf/2026-06600.pdf).
+
+## Recording notice and consent — BLOCKING
+
+Configure Vapi's `recordingConsentPlan` so notice and affirmative consent occur
+before substantive intake. Florida requires prior consent of all parties for
+interception under Fla. Stat. §934.03(2)(d). Carrier compliance or counsel must
+approve the exact notice, when recording begins, the refusal path, and the
+multistate policy.
+
+CMS recording and retention duties may cover the full interaction if this is a
+TPMO marketing, sales, or enrollment call. Saying Ritter handles retention is
+not evidence of compliance. Before launch, document the contract, full-call
+capture boundary, retrieval procedure, access controls, and ten-year retention
+proof. Keep required recording retention separate from shorter operational
+retention for duplicate transcripts, model logs, and extracted records.
+
+Sources: [Florida Statute §934.03](https://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&URL=0900-0999/0934/Sections/0934.03.html)
+and [CMS Agent/Broker Marketing FAQs](https://www.cms.gov/files/document/agent-broker-marketing-faqs-10-19-2022.pdf).
 
 ## AI disclosure
-Disclosed in the opening line, every call. Re-disclosed any time the caller
-seems unsure who they're talking to.
 
-## Recordings
-CMS-required call recordings and retention are handled at **Ritter**. Nothing is
-stored in house.
+The opening discloses that the caller is speaking to an AI assistant, and GI-8
+repeats it when needed. Preserve this as a transparency practice. Do not describe
+it as a complete nationwide legal conclusion; state AI rules continue to evolve.
 
-## Protected health information — UNRESOLVED
+## Sensitive health information and HIPAA status — UNRESOLVED
 
-Step 12 collects a medication list, doses, treating physicians, and a pharmacy.
-That is health information tied to an identified individual, gathered by an
-entity arranging health coverage. Treat it as PHI until someone qualified tells
-you otherwise.
+Step 12 collects medications, directions, treating physicians, and a pharmacy.
+That is sensitive identifiable health information. It is PHI under HIPAA only
+when held or transmitted by a covered entity or business associate in this
+workflow; an insurance agency is not automatically either merely because it
+arranges coverage. Treat the data as highly sensitive regardless.
 
-Which means it is not only Ritter that holds sensitive data. The call audio, the
-live transcript, and the extracted intake record pass through **Vapi**, the
-telephony leg through **Twilio**, and — once phase 5 exists — the structured
-record through **n8n** and whatever it writes into.
+Before launch, counsel must map the role of the agency, Ritter, each plan, Vapi,
+Twilio, the model/STT/TTS providers, n8n, and the final storage system. If a
+business-associate relationship exists, execute the appropriate BAAs and verify
+safeguards for every PHI-handling vendor or subcontractor.
 
-Before this number takes real callers, confirm with a compliance contact:
+Even if HIPAA does not apply, the FTC Act and state security/breach laws still
+apply to representations and safeguards around consumer health data. Define a
+field-by-field purpose, permitted recipients, access roles, encryption,
+retention/deletion period, and incident procedure. See [HHS covered entities](https://www.hhs.gov/hipaa/for-professionals/covered-entities/index.html),
+[HHS business associates](https://www.hhs.gov/hipaa/for-professionals/privacy/guidance/business-associates/index.html),
+and [FTC/HHS health-data guidance](https://www.ftc.gov/business-guidance/resources/collecting-using-or-sharing-consumer-health-information-look-hipaa-ftc-act-health-breach).
 
-- Whether the agency is a covered entity or business associate here.
-- Whether a **BAA** is needed with Vapi, with Twilio, and with the n8n host, and
-  whether each will sign one on the current plan. Not every vendor tier offers
-  one.
-- How long transcripts and recordings persist at each vendor, and whether that
-  retention is compatible with the CMS retention already handled at Ritter.
-- Where the phase 5 record lands, and whether that destination is in scope.
+## Callback consent
 
-This is flagged, not resolved. Nobody in this repo is qualified to answer it, and
-it is the kind of gap that is far cheaper to close before launch than after.
+Callback consent authorizes a human licensed-agent callback to the exact number
+confirmed on the call for this insurance request. Store the number, purpose,
+channel, timestamp, response verbatim, script version, and any revocation. It
+does not authorize an automated or AI-voice callback. If automated callbacks are
+added later, obtain counsel-approved TCPA language first. See [FCC 24-17](https://docs.fcc.gov/public/attachments/FCC-24-17A1.pdf).
 
-**If the answer is yes**, the path at Vapi is concrete: a signed BAA via
-`security@vapi.ai`, then HIPAA mode enabled in the dashboard. It is an
-organization-level setting, cannot be turned on through the API, and requires
-Enterprise or a paid add-on — reported around $2,000/month. It also limits access
-to call logs and transcripts, restricts which model/voice/transcription providers
-you may use, and does not store structured outputs by default. See
-`config/vapi-settings.md` for what that does to the rest of the build, and
-`docs/open-questions.md` #6 for the budget collision it creates.
+## TPMO classification — BLOCKING
 
-Twilio signs BAAs and n8n's posture depends on how it's hosted; both need the
-same question asked of them, not just Vapi.
+Carrier compliance must determine whether this intake is itself a TPMO
+communication, marketing, or sales call and whether a verbal TPMO disclaimer is
+required. That classification controls recording, retention, and disclaimer
+requirements. Avoidance of carrier and specific plan names does not settle it.
 
-## Hard boundaries in the prompt
-- No plan or carrier names.
+## Hard prompt boundaries
+
+- No carrier or specific plan names outside the approved SOA categories.
 - No coverage or eligibility determinations.
-- No pricing.
-- No medical advice. Emergencies → hang up and call 911, no triage.
-- No confirming a medication name or dose the caller didn't clearly say.
+- No pricing or medical advice.
+- Emergencies instruct the caller to call 911 and fire `end_intake_call` in the
+  same turn; no triage.
+- No confirming a medication name, strength, unit, or direction the caller did
+  not clearly state.

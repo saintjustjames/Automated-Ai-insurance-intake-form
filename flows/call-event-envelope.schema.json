@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "prep-and-seal-call-event-envelope",
+  "title": "Authoritative Call Event Envelope",
+  "description": "Operational metadata joined with AI-extracted intake content downstream. These values come from Vapi/Twilio events or deterministic runtime state, never LLM extraction.",
+  "type": "object",
+  "required": ["event_id", "call_id", "event_type", "occurred_at", "assistant_version"],
+  "additionalProperties": false,
+  "properties": {
+    "event_id": { "type": "string" },
+    "call_id": { "type": "string" },
+    "twilio_call_sid": { "type": ["string", "null"] },
+    "destination_call_sid": { "type": ["string", "null"] },
+    "event_type": {
+      "type": "string",
+      "enum": ["call_started", "intake_progressed", "transfer_requested", "destination_ringing", "human_accepted", "transfer_cancelled", "voicemail_detected", "busy", "no_answer", "caller_abandoned", "fallback_delivered", "callback_task_created", "call_ended"]
+    },
+    "occurred_at": { "type": "string", "format": "date-time" },
+    "assistant_version": { "type": "string" },
+    "tool_version": { "type": ["string", "null"] },
+    "completed_through_node": { "type": ["string", "null"] },
+    "event_sequence": { "type": ["integer", "null"], "minimum": 0 },
+    "idempotency_key": { "type": ["string", "null"] },
+    "intake": { "$ref": "intake-schema.json" }
+  }
+}

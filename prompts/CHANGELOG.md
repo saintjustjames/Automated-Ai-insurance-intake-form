@@ -1,5 +1,25 @@
 # Prompt Changelog
 
+## 2026-08-25e (SOA agent identity)
+- Set the deployment value of `soa_agent_name` to `James Saint-Just`.
+- Set `soa_agent_phone_spoken` to "five six one, two four seven, one four four
+  three" for canonical number `+15612471443`. Both SOA identity variables now
+  require a live rendering test before deployment.
+
+## 2026-08-25d (SOA and current Vapi transfer behavior)
+- Replaced the informal product-permission question with a complete recorded SOA
+  script containing the date, assigned licensed-agent contact information,
+  product scope, no-obligation statement, no Medicare-status impact statement,
+  and no-automatic-enrollment statement.
+- Added required `soa_agent_name` and `soa_agent_phone_spoken` deployment
+  variables. The assistant must transfer rather than read an incomplete SOA if
+  either is missing.
+- Proxy callers no longer grant the beneficiary's SOA; the licensed agent must
+  confirm permission and scope directly.
+- Updated transfer documentation for current assistant-based warm transfer:
+  operator summary plus explicit accept/cancel behavior and optional return to
+  N16 after a failed transfer.
+
 Newest first. Note *why*, not just what.
 
 ## 2026-08-25c (rewritten as a paste payload; voice-agent best practices)

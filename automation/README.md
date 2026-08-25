@@ -78,5 +78,27 @@ Whichever way it goes, the first workflow is the same:
 4. Create the follow-up task — especially for calls where the transfer failed and
    the caller was promised a callback.
 
+## Production delivery controls — required
+
+The receiver is not production-ready until it has all of these:
+
+- HTTPS plus Vapi/Twilio request authentication; reject invalid signatures or
+  shared-secret checks before parsing sensitive payloads.
+- Fast acknowledgement and asynchronous processing.
+- Idempotency using `call.id + event type + output/event id`, backed by a unique
+  constraint. Store receipt status separately from processing status.
+- Retry with bounded backoff, a dead-letter queue, and an alert on any promised
+  callback that has no task.
+- Out-of-order event handling using event timestamps/sequence, plus periodic
+  reconciliation against the Vapi API.
+- PHI-safe logs: no raw transcript, medication, phone, or health fields in
+  application/error logs.
+- Durable polling cursor with an overlap window if polling is retained.
+
+`flows/intake-schema.json` is AI-extracted content only.
+`flows/call-event-envelope.schema.json` supplies authoritative call IDs,
+timestamps, runtime node state, assistant/tool versions, and transfer events.
+Human acceptance—not `assistant-forwarded-call`—is the success condition.
+
 Step 4 is the one that matters most. It is the other half of the promise the
 fallback message makes.

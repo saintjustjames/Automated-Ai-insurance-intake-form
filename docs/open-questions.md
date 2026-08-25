@@ -17,11 +17,13 @@ Still open, and it's a real risk:
   it. Without that, the fallback message never fires and an unanswered transfer
   drops the caller into a voicemail box with no explanation — the exact outcome
   the fallback exists to prevent.
-- Vapi cannot resume the assistant conversation after a failed transfer. The
-  fallback message gets one sentence, then the call ends. There is no path back
-  into the script — confirm the message alone is enough.
-- The fallback message promises a human will follow up. Someone has to actually
-  work that voicemail queue, or the promise is a lie.
+- Current Vapi assistant-based warm transfer can return the caller to the
+  original assistant when `fallbackPlan.endCallEnabled` is `false`. Configure
+  the transfer assistant to call `transferCancel` on voicemail, busy, no answer,
+  or rejection, then route the returned caller through N16.
+- The fallback message makes no scheduling promise. N16 may collect a request,
+  but the assistant must not claim it is saved or scheduled until the callback
+  workflow is deployed and monitored.
 
 ## 2. Haitian Creole transcription quality — BLOCKING for Creole
 Spanish is safe. Creole is not verified. Run a live test call in Creole and see
@@ -38,24 +40,18 @@ Researched, not decided. Squad = a greeter assistant routes to dedicated
 per-language assistants with their own voices and natively-written scripts.
 Better quality, more moving parts. Deferred until English is proven.
 
-## 4. Who works the voicemail queue?
-Not a technical question, and it blocks Phase 1 anyway. The transfer fallback
-message tells the caller "someone will reach out to you shortly." If nobody is
-assigned to that queue, the system's failure path is a recorded lie to a senior
-who was promised a callback. Name a person before the number goes live.
+## 4. Who works failed-transfer callbacks?
+Assign an owner and SLA before enabling callback promises. Until the authenticated
+workflow creates and monitors a callback task, N16 may collect a request but must
+not say it is saved, scheduled, or guaranteed.
 
-## 5. Transfer mode: summary to the agent, or voicemail fallback?
-Vapi does not appear to offer both in one mode.
-
-- `warm-transfer-experimental` (current): voicemail detection and a fallback
-  message. The receiving agent gets **no spoken summary**.
-- `warm-transfer-with-summary` / `...-wait-for-operator-to-speak-first-and-then-
-  say-summary`: an AI summary read to the agent before connecting. **No voicemail
-  fallback.**
-
-The summary modes deliver the actual product promise — the agent picks up already
-knowing who's on the line. The current mode protects the failure path instead.
-Both matter. Someone has to choose, or find a way to stack them.
+## 5. Transfer mode — RESOLVED IN CURRENT VAPI DOCS, needs deployment
+Use assistant-based `warm-transfer-experimental`. Current Vapi documentation
+supports an operator summary or transfer-assistant conversation together with a
+fallback plan. With `fallbackPlan.endCallEnabled: false`, a failed transfer can
+return to the original assistant. The transfer assistant must call
+`transferSuccessful` after human acceptance and `transferCancel` for voicemail,
+busy, no answer, or rejection.
 
 ## 6. PHI, HIPAA mode, and the budget — BLOCKING for real callers
 The intake collects medications, doses, doctors, and a pharmacy, flowing through

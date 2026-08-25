@@ -1,7 +1,7 @@
 {
   "$comment": "Machine-readable mirror of flows/branching-logic.md. Source of truth for the flow is that markdown file; this exists so the flow can be diffed, tested, and later compiled into a Vapi Workflow (roadmap phase 4) without re-deriving it from prose. Not consumed by anything yet.",
   "name": "prep-and-seal-intake",
-  "version": "2026-08-25",
+  "version": "2026-08-25e",
   "entry": "G0",
   "terminals": {
     "transfer": "transfer_to_licensed_agent",
@@ -12,7 +12,7 @@
       "id": "GI-1",
       "priority": 1,
       "trigger": "medical_emergency",
-      "action": "Stop intake. 'Please hang up and call 911 right now.' No triage.",
+      "action": "Stop intake. Say 'Please hang up and call 911 right now' and call end_intake_call in the same turn. No triage.",
       "terminal": "end"
     },
     {
@@ -112,8 +112,8 @@
       "note": "The only hard gate in the flow.",
       "branches": [
         { "on": "yes", "next": "N2" },
-        { "on": "no", "say": "Totally fine - stay on the line and an agent will be right with you.", "terminal": "end" },
-        { "on": "responds_in_es_or_ht", "interrupt": "GI-12", "next": "N2" }
+        { "on": "no", "say": "Totally fine - let me connect you with a licensed agent now.", "terminal": "transfer" },
+        { "on": "responds_in_es_or_ht", "interrupt": "GI-12", "action": "Repeat the AI disclosure and intake-consent question in the selected language.", "next": "G0" }
       ]
     },
     {
@@ -132,11 +132,11 @@
       "step": 3,
       "label": "Who it's for",
       "blocking": false,
-      "captures": ["is_proxy"],
-      "note": "Data-labeling branch. Questions do not change; who the answers are about does.",
+      "captures": ["is_proxy", "beneficiary_name", "proxy_relationship", "beneficiary_present"],
+      "note": "Keep caller contact identity separate from beneficiary coverage and health identity.",
       "branches": [
         { "on": "self", "sets": { "is_proxy": false }, "next": "N4" },
-        { "on": "helping_someone_else", "sets": { "is_proxy": true, "answers_describe": "beneficiary" }, "next": "N4" },
+        { "on": "helping_someone_else", "sets": { "is_proxy": true, "answers_describe": "beneficiary" }, "askOneAtATime": ["beneficiary name", "relationship", "whether beneficiary is present"], "next": "N4" },
         { "on": "unclear", "reask": 1, "default": { "is_proxy": false, "flag": "unclear" }, "next": "N4" }
       ]
     },
@@ -168,13 +168,15 @@
     {
       "id": "N6",
       "step": 6,
-      "label": "SOA consent",
+      "label": "Recorded Scope of Appointment",
       "blocking": false,
-      "note": "Behavior gate, not a stop. Declining narrows vocabulary only.",
-      "captures": ["soa_consent"],
+      "note": "Verbatim recorded scope. Requires date, assigned licensed-agent contact, product categories, no-obligation, no-enrollment-impact, and no-automatic-enrollment statements.",
+      "captures": ["soa_consent", "soa_script_version", "soa_timestamp", "soa_product_scope", "soa_agent_name", "soa_agent_phone", "soa_response_verbatim", "soa_caller_is_beneficiary"],
       "branches": [
         { "on": "granted", "sets": { "plan_naming_suppressed": false }, "next": "N7" },
-        { "on": "declined_or_unsure", "sets": { "plan_naming_suppressed": true }, "say": "No problem at all - I'll just get a few basics down and your agent can cover the details.", "next": "N7" }
+        { "on": "declined_or_unsure", "sets": { "plan_naming_suppressed": true }, "say": "No problem at all - I won't discuss plan options. I can still connect you with a licensed agent.", "skip": ["N7", "N8", "N9", "N10", "N11", "N12", "N13"], "next": "N14" },
+        { "on": "proxy", "action": "Do not let the proxy grant the beneficiary's SOA. Transfer for licensed-agent verification.", "terminal": "transfer" },
+        { "on": "missing_agent_variables", "action": "Do not read an incomplete SOA.", "terminal": "transfer" }
       ]
     },
     {
@@ -247,7 +249,7 @@
       "captures": ["doctors", "medications", "pharmacy"],
       "subquestions": [
         { "id": "N12.1", "ask": "Who are the doctors you see regularly?", "skippable": true },
-        { "id": "N12.2", "ask": "What medications are you taking these days?", "skippable": true, "spellBackLoop": { "maxAttempts": 2, "onExhausted": "record_verbatim_with_low_confidence" } },
+        { "id": "N12.2", "ask": "What medications are you taking these days? If you know the dose or directions, include them.", "skippable": true, "spellBackLoop": { "maxAttempts": 2, "onExhausted": "record_verbatim_with_low_confidence" } },
         { "id": "N12.3", "ask": "Which pharmacy do you use?", "skippable": true }
       ],
       "rules": [
@@ -263,7 +265,7 @@
       "step": 15,
       "label": "Summary and transfer",
       "blocking": false,
-      "summaryFields": ["caller_name", "zip", "program_status", "medications", "cost_priority"],
+      "summaryFields": ["caller_name", "beneficiary_name", "zip_or_county", "program_status", "medication_count", "low_confidence_medications", "cost_priority"],
       "summaryMaxSeconds": 15,
       "branches": [
         { "on": "confirmed", "terminal": "transfer" },
@@ -271,8 +273,10 @@
         { "on": "declines_transfer", "next": "N16" }
       ],
       "postTransfer": {
-        "controlReturns": false,
-        "note": "Warm transfer. On no-answer Vapi plays the fallbackPlan message and the call ends. The assistant cannot resume, so no closing line may assume the transfer succeeds."
+        "controlReturnsOnFailure": true,
+        "successSignal": "transferSuccessful after human acceptance",
+        "failureSignal": "transferCancel on voicemail, busy, no answer, or rejection",
+        "onFailure": "N16"
       }
     },
     {
@@ -282,7 +286,8 @@
       "blocking": false,
       "ask": "Would you like a licensed agent to follow up with you another time?",
       "branches": [
-        { "on": "yes", "captures": ["callback_preference", "callback_consent"], "terminal": "end" },
+        { "on": "yes_phone_exists", "captures": ["callback_preference", "callback_consent"], "terminal": "end" },
+        { "on": "yes_phone_missing", "captures": ["phone", "callback_preference", "callback_consent"], "rules": ["Read back and confirm the number", "Consent must refer to that exact number", "If no number is provided, do not claim a callback can be arranged"], "terminal": "end" },
         { "on": "no", "terminal": "end" }
       ],
       "rules": ["One offer, then respect the answer. Never push back."]

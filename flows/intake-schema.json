@@ -2,46 +2,33 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "prep-and-seal-intake-record",
   "title": "Intake Record",
-  "description": "The structured record one intake call produces. This is the contract between Vapi's structured-output extraction and the n8n post-call workflow (roadmap phase 5). Every field is nullable on purpose: any question can be skipped, and a partial record from an early transfer is a valid record. Nothing here is a required field except call_id and outcome.",
+  "description": "AI-extracted intake content only. Authoritative call identifiers, timestamps, node state, and transfer outcomes belong in the operational event envelope and must never be inferred by the extraction model. Every field is nullable because any question can be skipped and an early transfer produces a valid partial record.",
   "type": "object",
-  "required": ["call_id", "outcome"],
+  "required": [],
   "additionalProperties": false,
   "properties": {
-    "call_id": { "type": "string", "description": "Vapi call id." },
-    "started_at": { "type": ["string", "null"], "format": "date-time" },
     "language": {
       "type": ["string", "null"],
       "enum": ["en", "es", "ht", null],
       "description": "Language the intake was actually conducted in after any GI-12 switch."
     },
-    "outcome": {
-      "type": "string",
-      "enum": [
-        "transferred",
-        "transfer_failed_voicemail",
-        "declined_intake",
-        "early_exit",
-        "emergency_ended",
-        "voicemail_detected",
-        "wrong_person",
-        "silence_timeout"
-      ],
-      "description": "How the call ended. Drives what the n8n workflow does next."
-    },
-    "completed_through_node": {
-      "type": ["string", "null"],
-      "description": "Last node reached, e.g. 'N12'. Tells the agent how much of the record to trust as complete."
-    },
-
     "caller_name": { "type": ["string", "null"] },
     "is_proxy": {
       "type": ["boolean", "null"],
       "description": "True when the caller is helping someone else. When true, every coverage and clinical field below describes the beneficiary, NOT the caller. Contact fields still describe the caller."
     },
+    "beneficiary_name": { "type": ["string", "null"], "description": "Name of the person seeking coverage when the caller is a proxy." },
+    "proxy_relationship": { "type": ["string", "null"] },
+    "beneficiary_present": { "type": ["boolean", "null"] },
 
     "phone": { "type": ["string", "null"] },
     "alt_phone": { "type": ["string", "null"] },
-    "callback_consent": { "type": ["boolean", "null"] },
+    "callback_consent": { "type": ["boolean", "null"], "description": "Consent for a human licensed-agent callback to callback_number for this insurance request only." },
+    "callback_number": { "type": ["string", "null"] },
+    "callback_consent_timestamp": { "type": ["string", "null"], "format": "date-time" },
+    "callback_consent_response_verbatim": { "type": ["string", "null"] },
+    "callback_consent_script_version": { "type": ["string", "null"] },
+    "callback_consent_revoked": { "type": ["boolean", "null"] },
     "callback_preference": { "type": ["string", "null"], "description": "Preferred day/time, captured only on the early-exit path." },
     "best_time_to_reach": { "type": ["string", "null"] },
 
@@ -57,6 +44,17 @@
       "enum": ["granted", "declined", "unsure", null],
       "description": "Verbal Scope of Appointment consent. Declined does NOT end the call - it suppresses plan-type naming for the rest of it."
     },
+    "soa_script_version": { "type": ["string", "null"], "description": "Exact approved SOA script version read on the call." },
+    "soa_timestamp": { "type": ["string", "null"], "format": "date-time" },
+    "soa_product_scope": {
+      "type": ["array", "null"],
+      "items": { "type": "string" },
+      "description": "Product categories included in the recorded scope."
+    },
+    "soa_agent_name": { "type": ["string", "null"] },
+    "soa_agent_phone": { "type": ["string", "null"] },
+    "soa_response_verbatim": { "type": ["string", "null"] },
+    "soa_caller_is_beneficiary": { "type": ["boolean", "null"] },
     "plan_naming_suppressed": { "type": ["boolean", "null"] },
 
     "program_status": {
@@ -87,7 +85,10 @@
         "properties": {
           "verbatim": { "type": "string", "description": "Exactly what the caller said. Always populated." },
           "name": { "type": ["string", "null"], "description": "Only when the caller said it clearly or spelled it. Never inferred from a partial." },
-          "dose_mg": { "type": ["number", "null"], "description": "Only when the caller volunteered it." },
+          "dose_verbatim": { "type": ["string", "null"], "description": "Dose or directions exactly as spoken, including units, form, and schedule." },
+          "strength_value": { "type": ["number", "null"], "description": "Optional normalized value only when explicitly stated." },
+          "strength_unit": { "type": ["string", "null"], "description": "Unit exactly stated, such as mg, mcg, mL, units, tablet, or puff." },
+          "frequency": { "type": ["string", "null"], "description": "Directions or schedule exactly as spoken." },
           "confidence": { "type": "string", "enum": ["high", "low"], "description": "low = spell-back loop exhausted; the agent should re-confirm this one by voice." }
         }
       }

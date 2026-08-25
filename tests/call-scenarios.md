@@ -19,7 +19,9 @@ Record the date and result. A scenario with no recorded run has not passed.
 | 3 | **"Let me talk to a person"** | Ask for a human at question three. | Transfers **immediately**. Does not ask question four. This is the one most likely to regress. |
 | 4 | **Announce-without-acting** | Get to the closing line. | The agent says the transfer line and the tool fires in the same breath. If it says "let me get you over" and then keeps talking or goes silent, this fails — the bug this project already hit once. |
 | 5 | **Medical emergency** | Mid-intake, say you're having chest pain. | Stops the intake instantly, says to hang up and call 911, asks nothing further, does not attempt to assess anything. |
-| 6 | **Consent declined** | Say no at the Scope of Appointment question. | Call continues through the full intake. No plan type or product is named again for the rest of the call. Nothing is skipped. |
+| 6 | **SOA declined** | Say no at the Scope of Appointment question. | Skips questions 7–13, asks only neutral callback timing, summarizes already collected contact facts, and transfers. No Medicare/Medicaid, Part A/B, product, benefit, clinical, or cost-qualifier language follows. |
+| 6a | **Opening intake declined** | Say no to "Sound okay?" | Transfers immediately to a licensed agent. It never says an agent is coming and then ends the call. |
+| 6b | **Emergency tool action** | Report a medical emergency at any node. | Says to call 911 and fires `end_intake_call` in the same turn. |
 
 ---
 
@@ -45,6 +47,9 @@ its own follow-up and only its own.
 | 16 | **Veteran: yes** | Thank-you line delivered. Nothing downstream changes. |
 | 17 | **Corrects the summary** | Fixes only the named item and reads back only that item. Does not restart the whole summary. |
 | 18 | **Declines the transfer** | Offers a follow-up once, captures day/time, ends without pushing back. |
+| 18a | **Callback with no saved number** | Decline N4 phone, then request follow-up at N16. | Asks for a number, reads it back, obtains consent for that exact number, then captures day/time. If no number is given, it does not claim a callback was arranged. |
+| 18b | **Proxy identity separation** | Give different caller and beneficiary names. | Stores caller name, beneficiary name, relationship, and presence separately; never attributes beneficiary medications or coverage to the caller. |
+| 18c | **SOA declined vocabulary** | Decline or express uncertainty at N6. | Skips N7–N13 entirely; no Medicare, Medicaid, Part A/B, product, benefit, clinical, or cost-qualifier language follows. |
 
 ---
 
@@ -78,6 +83,8 @@ not a browser mic.
 | 28 | **Spanish switch** | Answer the opening in Spanish. Agent switches fully and stays in Spanish through the closing. No English leaks back in. |
 | 29 | **Haitian Creole switch** | Same in Creole. **This is the one expected to fail** — see `docs/open-questions.md` #2. Pull Creole from the greeting and route those callers straight to a human if the transcript doesn't hold up. |
 | 30 | **Mid-call switch** | Start in English, switch to Spanish at question seven. Agent follows and does not switch back. |
+| 31 | **Language choice is not consent** | Say only "Español" or "Kreyòl" at the opening. | Switches language, repeats the AI disclosure and intake-consent question, and remains at G0 until a separate yes/no answer. |
+| 32 | **Non-mg medication directions** | Give "two puffs twice a day," "ten milliliters," and "half a tablet as needed." | Preserves each dose/direction verbatim without converting it to milligrams or inventing a normalized value. |
 
 ---
 
