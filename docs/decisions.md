@@ -34,8 +34,23 @@ Settled. Don't relitigate without a reason.
 ## Stack
 - Cloud-hosted, not self-hosted. Considered a home NAS build and rejected it.
 - Twilio over Telnyx/Plivo for the phone layer.
+- **Run on the Twilio number, not Vapi's built-in one.** *Decided 2026-08-25.*
+  Warm transfer is documented as Twilio-only, and warm transfer is the whole
+  handoff design. Steps in `config/vapi-settings.md`.
+- **Prompt caching before model downgrade.** *Decided 2026-08-25.* Caching is
+  free and saves more; a cheaper model risks exactly the instruction-following
+  behaviors this agent depends on. Both are worth doing, in that order. See
+  `docs/cost-model.md`.
+- **A model change is not shippable until the P0 test block passes.** The test
+  suite is what makes trying a cheaper model a measurable experiment instead of a
+  gamble.
 - Vapi over Retell, because coding help makes the extra flexibility worth it.
-- n8n (not Zapier) for post-call automation.
+- Post-call automation: **reopened 2026-08-25.** n8n was chosen over Zapier, but
+  a scheduled agent polling the Vapi API is a viable alternative that drops the
+  webhook host entirely — polling latency is irrelevant here, since the caller
+  already went to a human. What is *not* viable is "Claude handles it in chat":
+  calls end at 7pm on a Saturday and something has to be running. See
+  `automation/README.md`.
 - Budget target: usage-based, roughly $2k/month ceiling, no big upfront cost.
 - CMS-required call recordings and retention are held at **Ritter** — not stored
   in house.

@@ -31,6 +31,10 @@ fixing that means debugging a limitation instead of removing it.
       the prompt in the same change.
 - [ ] Wire `flows/intake-schema.json` up as the structured-output schema — phase
       5 depends on it and it's cheaper to do now than to retrofit.
+- [ ] **Turn on prompt caching.** Free, no quality risk, biggest single cost
+      saving. Confirm cached-token counts are non-zero in the call logs.
+- [ ] Try a cheaper model, then re-run P0 plus scenarios 3, 4, 19, 27. Keep it
+      only if it passes clean. See `docs/cost-model.md`.
 
 ## Phase 2 — Spanish
 - Duplicate the proven English assistant.
@@ -45,10 +49,15 @@ fixing that means debugging a limitation instead of removing it.
 - Lightweight greeter assistant handles the language offer and routes.
 - Hands off to the dedicated EN / ES / HT assistants from phases 1–3.
 
-## Phase 5 — Post-call automation (n8n)
+## Phase 5 — Post-call automation
+- **Wire up structured outputs first.** Both designs below depend on it.
+- Decide: webhook receiver (n8n) vs. scheduled agent polling the Vapi API.
+  See `automation/README.md`. Note that HIPAA mode, if enabled, doesn't store
+  structured outputs by default — which breaks the polling design.
 - Log the call summary and structured intake data.
 - Push to a CRM or calendar so agents can track and follow up.
-- Hangs off the summary step in the flow.
+- **Create the follow-up task for failed transfers.** This is the other half of
+  the promise the fallback message makes to the caller.
 
 ## Phase 6 — Plan availability lookup
 - Tie the caller's ZIP to which plans are actually available there, and let the

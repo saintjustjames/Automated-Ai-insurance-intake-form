@@ -42,8 +42,9 @@ docs/
   open-questions.md         Unresolved. Answer before building past them.
   roadmap.md                Build phases, in order
   compliance.md             CMS/SOA constraints on the script
+  cost-model.md             What a call costs; which levers to pull, in order
 automation/
-  n8n/                      Post-call automation (not built yet)
+  README.md                 Post-call automation options (not built yet)
 ```
 
 ## Deploying a prompt change

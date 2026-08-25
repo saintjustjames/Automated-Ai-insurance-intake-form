@@ -238,9 +238,58 @@ fallback message plays, then the call ends. There is no path back into the
 script, so the AI can't collect a preferred callback time at that point. Don't
 write a prompt that assumes otherwise.
 
-## Phone number
-Currently using **Vapi's built-in number**, not the imported Twilio trial number.
-Twilio account and credentials exist and are connected if needed.
+## Phone number — switching to Twilio
+
+**Decided 2026-08-25:** move off Vapi's built-in number and onto the Twilio
+number, because warm transfer is documented as Twilio-only. Not yet done — this
+is a dashboard change, and it's the first item in Phase 1.
+
+Steps:
+
+1. In Twilio, confirm the number has **Voice** capability and the account is
+   upgraded out of trial. A trial account prepends a message to inbound calls and
+   restricts calling — not acceptable for real callers.
+2. In Vapi → **Phone Numbers** → **Import Twilio Number**. Enter the Twilio
+   Account SID, Auth Token, and the number itself. Vapi sets the voice webhook on
+   that number automatically; nothing needs editing in the Twilio console, and
+   Vapi will overwrite a webhook set there by hand.
+3. Under **Inbound Settings** on the imported number, assign the intake
+   assistant.
+4. Place a test call. Confirm the assistant answers with the opening line.
+5. **Then** re-test the transfer — scenario 1a in `tests/call-scenarios.md`. That
+   is the whole reason for this change: confirm the caller hears hold audio while
+   the destination rings, rather than being connected instantly.
+
+Keep the Vapi number around until step 5 passes, so there's something to fall
+back to.
+
+## Model choice and prompt caching
+
+**Turn on prompt caching before changing the model.** It's free, carries no
+quality risk, and saves more than a downgrade does. The system prompt is re-sent
+on every turn of the call — roughly 72,000 input tokens across a full intake,
+nearly all of it the same static text. Anthropic's prefix caching takes about 90%
+off that.
+
+`prompts/system-prompt.md` is fully static, with no interpolated variables. That
+is exactly what caching needs, and it's worth protecting: **never put a
+timestamp, call ID, or caller name near the top of the system prompt.** Anything
+dynamic goes at the end, after all static instructions. The time-of-day greeting
+lives in `firstMessage`, which is separate and doesn't affect the cached prefix.
+
+Verify it's live by checking cached-token counts in the call logs. Zero across
+repeated calls means something is invalidating the prefix.
+
+**Then** consider a cheaper model. Full math, options, and the risk in
+`docs/cost-model.md`. The short version: Haiku-tier is a real saving and a real
+risk, because this agent's job is instruction-following — same-turn tool calls,
+five-way branching, never inventing a medication — and that's what degrades first
+on a smaller model. Re-run the P0 block plus scenarios 3, 4, 19, and 27 after any
+model change, and keep the cheaper model only if it passes clean.
+
+Also worth noting: with your own provider API key, token costs go to your
+provider at native pricing instead of through Vapi's margin. Vapi's $0.05/min
+orchestration fee applies either way.
 
 ## Not configured — do not let the prompt claim these
 - Record lookup / retrieval

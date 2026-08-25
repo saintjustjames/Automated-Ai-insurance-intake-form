@@ -26,10 +26,10 @@ style preference — do not soften it in any prompt edit.
 
 | Layer | Tool | Status |
 |---|---|---|
-| Phone line | Twilio | Connected, but **not in use** — currently on Vapi's built-in number. ⚠️ See below. |
+| Phone line | Twilio | Connected. **Decided: move onto it**, off Vapi's built-in number — warm transfer is Twilio-only. Not done yet. ⚠️ See below. |
 | Conversation | Vapi | Live. Single assistant, full script loaded. |
 | Live handoff | `transfer_to_licensed_agent` (Vapi tool) | Configured as warm transfer w/ voicemail fallback. **Untested end to end, and probably degrading to blind transfer.** |
-| Post-call automation | n8n | Not built. Planned. |
+| Post-call automation | undecided | Not built. n8n webhook vs. scheduled agent polling the Vapi API — `automation/README.md`. |
 | Carrier/member data | Ritter → IntegrityCONNECT | Not built. Needs real dev work. |
 
 Account email for all services: `prepandsealinsurance@gmail.com`
@@ -50,14 +50,15 @@ prompts/CHANGELOG.md        Why the prompt changed, version by version.
 tests/call-scenarios.md     Manual call tests. P0 block gates any go-live.
 flows/branching-logic.md    The branch map. THE SPEC the prompt implements.
 flows/intake-flow.json      Machine-readable mirror of the branch map.
-flows/intake-schema.json    The record one call produces. Contract for n8n.
+flows/intake-schema.json    The record one call produces. Post-call contract.
 tools/*.json                Intended Vapi tool config, version-controlled.
 config/vapi-settings.md     Non-prompt Vapi config: voice, transcriber, tools.
 docs/decisions.md           Locked decisions. Don't relitigate these.
 docs/open-questions.md      Unresolved. Answer these before building past them.
 docs/roadmap.md             Build phases in order.
 docs/compliance.md          CMS/SOA rules that constrain the script.
-automation/n8n/             Future post-call workflows.
+docs/cost-model.md          What a call costs and which levers to pull.
+automation/README.md        Post-call automation options. Not built.
 ```
 
 ## Working agreement

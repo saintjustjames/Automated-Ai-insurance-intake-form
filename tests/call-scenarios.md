@@ -77,6 +77,23 @@ not a browser mic.
 
 ---
 
+## Model changes
+
+A model change is a prompt change with no diff. It regresses silently.
+
+After swapping the model — especially **downward**, for cost — re-run the whole
+**P0 block**, plus these four, which target what a smaller model gives up first:
+
+| # | Why it's the canary |
+|---|---|
+| 3 | Does it still abandon the script when someone asks for a human? |
+| 4 | Does it still call the tool in the same turn it announces the transfer? |
+| 19 | Does it still refuse to invent a medication name from a garbled one? |
+| 27 | Does it still keep internal vocabulary out of its speech? |
+
+Ship the cheaper model only if all of it passes clean. If it doesn't, that's a
+real answer for the price of an hour of test calls — see `docs/cost-model.md`.
+
 ## What a failure means
 
 A P0 failure blocks the number going live. Full stop.
