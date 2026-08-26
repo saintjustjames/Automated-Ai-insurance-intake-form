@@ -63,8 +63,11 @@ setups it's the whole fix.
 {
   "stopSpeakingPlan": {
     "numWords": 2,
-    "voiceSeconds": 0.3,
-    "backoffSeconds": 1
+    "backoffSeconds": 1,
+    "interruptionPhrases": [
+      "stop", "wait", "agent", "representative", "human", "person",
+      "emergency", "911", "spanish", "español", "kreyòl"
+    ]
   }
 }
 ```
@@ -72,14 +75,19 @@ setups it's the whole fix.
 | Field | Default | Set to | Why |
 |---|---|---|---|
 | `numWords` | 0 | **2** | Words the caller must say before the agent yields. At 0 a cough stops it. At 2, noise doesn't — but see the warning below about going higher. |
-| `voiceSeconds` | 0.2s | **0.3** | How long speech must be detected first. Vapi's docs say raising this "reduces false positives from background sounds in noisy environments." Short bursts stop counting. |
 | `backoffSeconds` | 1s | **1** | Pause before resuming after a real interruption. Leave it. |
 
-> **Don't push `numWords` past 2 on this agent.** The general advice is 2–3, but
-> the interruption that matters most here is a one- or two-word demand for a
-> human — "representative!", "agent", "stop". At 3 the agent talks over exactly
-> the caller it most needs to hear. 2 rejects noise while still catching a
-> two-word interruption on the first try.
+`voiceSeconds` applies to VAD mode when `numWords` is zero. It is intentionally
+omitted here because this assistant uses transcription-based interruption at
+`numWords: 2`.
+
+> **Don't push `numWords` past 2 on this agent.** One-word safety, language, and
+> human-transfer commands are listed in `interruptionPhrases`, which Vapi checks
+> before the word threshold. This preserves "agent," "stop," "911," and language
+> switches while ordinary noise and backchannels do not clear the pipeline.
+
+The clean deployable fragment is `config/vapi-noise-controls.json`. Apply that
+object as an assistant update rather than copying examples out of this document.
 
 ### 3. Only if a TV is still getting through
 

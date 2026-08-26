@@ -1,0 +1,48 @@
+{
+  "$comment": "Deployable assistant PATCH fragment for background-noise rejection. Verified against Vapi voice-pipeline and denoising documentation on 2026-08-25.",
+  "backgroundSound": "off",
+  "backgroundSpeechDenoisingPlan": {
+    "smartDenoisingPlan": {
+      "enabled": true
+    },
+    "fourierDenoisingPlan": {
+      "enabled": false,
+      "mediaDetectionEnabled": true
+    }
+  },
+  "stopSpeakingPlan": {
+    "numWords": 2,
+    "backoffSeconds": 1,
+    "acknowledgementPhrases": [
+      "okay",
+      "ok",
+      "yes",
+      "yeah",
+      "right",
+      "sure",
+      "alright",
+      "got it",
+      "uh-huh",
+      "mm-hmm",
+      "mhmm"
+    ],
+    "interruptionPhrases": [
+      "stop",
+      "wait",
+      "hold on",
+      "no",
+      "agent",
+      "representative",
+      "human",
+      "person",
+      "emergency",
+      "911",
+      "spanish",
+      "español",
+      "kreyòl"
+    ]
+  },
+  "startSpeakingPlan": {
+    "waitSeconds": 0.8
+  }
+}

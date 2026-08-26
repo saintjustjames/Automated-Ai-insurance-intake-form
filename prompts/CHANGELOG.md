@@ -1,5 +1,12 @@
 # Prompt Changelog
 
+## 2026-08-25f (deployable noise controls; no prompt wording change)
+- Added `config/vapi-noise-controls.json` with Smart Denoising enabled, office
+  ambience disabled, transcription-based two-word interruption detection,
+  ignored backchannels, and instant one-word safety/human/language phrases.
+- Removed `voiceSeconds` from the two-word configuration because Vapi applies it
+  to VAD mode when `numWords` is zero.
+
 ## 2026-08-25e (SOA agent identity)
 - Set the deployment value of `soa_agent_name` to `James Saint-Just`.
 - Set `soa_agent_phone_spoken` to "five six one, two four seven, one four four
