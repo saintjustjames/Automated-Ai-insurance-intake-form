@@ -58,6 +58,7 @@ docs/open-questions.md      Unresolved. Answer these before building past them.
 docs/roadmap.md             Build phases in order.
 docs/compliance.md          CMS/SOA rules that constrain the script.
 docs/cost-model.md          What a call costs and which levers to pull.
+docs/multi-assistant.md     Squads analysis: worth it for reliability, not cost.
 automation/README.md        Post-call automation options. Not built.
 ```
 

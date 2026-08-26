@@ -43,6 +43,7 @@ docs/
   roadmap.md                Build phases, in order
   compliance.md             CMS/SOA constraints on the script
   cost-model.md             What a call costs; which levers to pull, in order
+  multi-assistant.md        Squads: worth it for reliability and language, not cost
 automation/
   README.md                 Post-call automation options (not built yet)
 ```

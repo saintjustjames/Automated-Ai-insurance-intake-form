@@ -54,8 +54,23 @@ fixing that means debugging a limitation instead of removing it.
 - Same duplicate-and-translate pattern.
 
 ## Phase 4 — Squad
+Analysis and risks: `docs/multi-assistant.md`. Squads, **not** Workflows — Vapi
+no longer recommends Workflows for new builds.
+
 - Lightweight greeter assistant handles the language offer and routes.
 - Hands off to the dedicated EN / ES / HT assistants from phases 1–3.
+- **Replicate the global interrupts in every assistant** — emergency stop,
+  immediate transfer on a request for a human, frustration escalation. An
+  assistant missing them will ask about a pharmacy while someone describes chest
+  pain.
+- **Attach the transfer tool to every assistant**, not just the closer.
+- **Verify consent and proxy flags survive each handoff.** `plan_naming_suppressed`
+  crossing a boundary incorrectly is a compliance failure; `is_proxy` crossing
+  incorrectly attributes a medication list to the wrong person.
+- Add a handoff-boundary test per assistant: one emergency and one "let me talk
+  to a person" fired from *each* one, plus a state-carryover check.
+- Optional once stable: per-assistant model tiers — cheap for mechanical capture,
+  capable for branching, clinical, and close.
 
 ## Phase 5 — Post-call automation
 - **Wire up structured outputs first.** Both designs below depend on it.

@@ -35,10 +35,28 @@ route Creole callers to GI-4 (immediate transfer) rather than attempt an intake
 in a language the transcriber can't reliably hear. A garbled Creole medication
 list is worse than no medication list.
 
-## 3. Squad vs. single assistant
-Researched, not decided. Squad = a greeter assistant routes to dedicated
-per-language assistants with their own voices and natively-written scripts.
-Better quality, more moving parts. Deferred until English is proven.
+## 3. Squad vs. single assistant — ANALYZED, deferred to Phase 2
+Full analysis in `docs/multi-assistant.md`.
+
+Conclusion: worth doing, but for **reliability and language quality**, not cost.
+Splitting fragments the prompt cache, so it competes with caching rather than
+stacking with it, and changes none of the fixed per-minute costs. The one cost
+argument that survives is per-assistant model selection — cheap model for
+mechanical capture, capable model only where judgment lives.
+
+Two findings worth carrying forward:
+
+- **Vapi no longer recommends Workflows for new builds.** Squads with handoffs is
+  the current guidance; Vapi reports that models can't reliably hold a node's
+  instructions plus all possible next steps. So this is a Squad, not a node graph.
+- **Global interrupts and consent flags must be replicated in every assistant.**
+  If `plan_naming_suppressed` doesn't survive a handoff, a later assistant names
+  plan types to a caller who declined consent — a compliance failure, not a
+  cosmetic one. Same for the emergency stop and the immediate-transfer interrupt.
+
+Deferred until English is proven end to end, and introduced with Spanish, where
+a language router is one decision at the top of the call rather than five
+mid-call state transfers.
 
 ## 4. Who works failed-transfer callbacks?
 Assign an owner and SLA before enabling callback promises. Until the authenticated

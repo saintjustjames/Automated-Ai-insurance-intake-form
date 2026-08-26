@@ -45,16 +45,32 @@ also the lever.
 
 ---
 
-## Lever 1 — Prompt caching. Do this first.
+## Lever 1 — Prompt caching. Measure it, then keep it.
 
-**Free. No quality risk. Largest single saving.**
+**No quality risk. Likely the largest saving. Not free — verify before assuming.**
 
 Vapi passes the model call through to the provider, so prompt caching works
 whenever the underlying provider supports it — Anthropic, OpenAI 4o-class, Groq.
-Anthropic's prefix caching is documented at roughly **90% off cached input
-tokens** and materially lower latency on long prompts.
+Cache *reads* are heavily discounted; cache *writes* cost more than ordinary
+input. So caching pays only when a prefix is reused enough to earn back its
+write.
 
-On the ~72,000 input tokens above, nearly all of it is cacheable prefix.
+**Here it almost certainly is, because the reuse is inside a single call.** One
+static prefix, ~30 turns, all within about five minutes:
+
+| | Billed input, relative units |
+|---|---|
+| Uncached — 30 turns × 2,400 tokens | ~72,000 |
+| Cached — 1 write, 29 reads | ~10,000 |
+
+That holds regardless of call volume, because it never depends on one call's
+cache surviving until the next call. Cross-call reuse is a bonus, not the case
+for doing it.
+
+**The thing actually worth verifying is whether Vapi sets cache breakpoints at
+all** on your chosen provider — not whether the math works. Check cached-token
+counts in the call logs. If they're zero across turns *within* one call, caching
+isn't being applied and none of the above is happening.
 
 Two rules make or break it:
 
@@ -72,10 +88,6 @@ prompt, put it at the *end*, after all the static instructions — never near th
 top. The time-of-day greeting belongs in `firstMessage`, which is separate from
 the cached system prompt and does not affect this.
 
-Verify it's actually working by checking cached-token counts in the call logs. If
-they're zero across repeated calls, something is silently invalidating the
-prefix.
-
 ---
 
 ## Lever 2 — Right-size the model. Do this second, and test it.
@@ -91,17 +103,18 @@ Current Anthropic pricing per million tokens:
 | Claude Sonnet 5 | $3.00 ($2.00 promotional through 2026-08-31) | $15.00 ($10.00) |
 | Claude Haiku 4.5 | $1.00 | $5.00 |
 
-Rough input cost for one call at ~72,000 tokens, before caching:
+Rough input cost for one call, at ~72,000 tokens uncached and ~10,000
+billed-equivalent cached:
 
 | Model | Uncached | With caching |
 |---|---|---|
-| Opus 5 | ~$0.36 | ~$0.04 |
-| Sonnet 5 | ~$0.22 | ~$0.02 |
+| Opus 5 | ~$0.36 | ~$0.05 |
+| Sonnet 5 | ~$0.22 | ~$0.03 |
 | Haiku 4.5 | ~$0.07 | ~$0.01 |
 
 Note what that table says: **caching a mid-tier model beats downgrading without
-caching, by a wide margin.** Doing both is best, but the order matters — pull the
-free lever before the risky one.
+caching.** Doing both is best, but the order matters — confirm the no-risk lever
+is actually working before pulling the one that can regress behavior.
 
 ### The risk, stated plainly
 
@@ -129,7 +142,24 @@ something concrete for the price of an hour of test calls.
 
 ---
 
-## Lever 3 — Bring your own API key
+## Lever 3 — Split into multiple assistants? Mostly not for cost.
+
+Splitting the intake across specialist assistants (a Vapi Squad) cuts input
+tokens on paper — each turn carries only its own assistant's prompt. But it
+**fragments the prompt cache**, so it competes with Lever 1 rather than stacking
+with it, and it changes none of the fixed costs (Vapi's per-minute fee, TTS,
+transcription, telephony).
+
+The part that does hold up on cost is **per-assistant model selection**: a cheap
+model for mechanical capture, a capable one only where judgment lives.
+
+Full analysis, risks, and the recommended sequencing: `docs/multi-assistant.md`.
+Short version — worth doing for reliability and language quality, at Phase 2,
+not as a cost measure now.
+
+---
+
+## Lever 4 — Bring your own API key
 
 Vapi still charges its $0.05/min orchestration fee either way, but with your own
 provider key the token costs go to your provider account at native pricing rather
@@ -137,7 +167,7 @@ than through Vapi's margin. Worth doing once volume is real.
 
 ---
 
-## Lever 4 — Keep the call short
+## Lever 5 — Keep the call short
 
 Every turn re-sends the prompt, so turn count is a cost driver, not just a UX
 one. Things already in the prompt that help:
